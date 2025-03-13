@@ -11,7 +11,6 @@ export default function SignupPage() {
   const router = useRouter();
 
   const validatePhone = (value: string) => {
-    // Basic validation for 10-digit phone number
     return /^\d{10}$/.test(value);
   };
 
@@ -28,14 +27,51 @@ export default function SignupPage() {
     }
   };
 
-  const handleGetOTP = () => {
-    if (validatePhone(phone)) {
-      router.push(`/verify-otp?phone=${phone}`);
-    } else {
+
+
+  
+
+  const handleGetOTP = async () => {
+    if (!validatePhone(phone)) {
       setIsValid(false);
       setErrorMessage("Please enter a valid 10-digit phone number");
+      return;
+    }
+  
+    try {
+      const response = await fetch("/api/otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phone: `+91${phone}` }), // ✅ Ensure JSON format
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "An error occurred while sending OTP");
+      }
+  
+      const data = await response.json();
+      console.log("✅ OTP Sent Successfully:", data);
+      router.push(`/verify-otp?phone=${phone}`);
+  
+    } catch (error: unknown) {
+      console.error("❌ Error Sending OTP:", error);
+  
+      let errorMessage = "An error occurred. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+  
+      setIsValid(false);
+      setErrorMessage(errorMessage);
     }
   };
+
+
+
+
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -140,10 +176,12 @@ export default function SignupPage() {
                   </div>
                   <div className="flex items-end justify-around h-24">
                     {[...Array(30)].map((_, i) => (
+                      
                       <div
                         key={i}
                         className={`w-1 h-${Math.floor(Math.random() * 20) + 4} ${Math.random() > 0.5 ? 'bg-green-500' : 'bg-red-500'} rounded`}
                       ></div>
+                    
                     ))}
                   </div>
                 </div>
