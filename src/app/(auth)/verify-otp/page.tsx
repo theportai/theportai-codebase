@@ -95,7 +95,7 @@ export default function VerifyOTP() {
 
     setTimeout(() => {
       setIsLoading(false);
-      router.push("/welcome"); // ✅ Redirect to KYC page instead of /auth/login
+      router.push("/welcome"); 
     }, 1500);
   };
 
