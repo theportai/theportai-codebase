@@ -9,14 +9,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Define KYC Status Enum
+
 enum KYCStatus {
   PENDING
   APPROVED
   REJECTED
 }
 
-// Define User Role Enum
+
 enum Role {
   USER
   ADMIN
@@ -36,4 +36,11 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   isVerified  Boolean   @default(false)
+}
+
+
+model OtpRequest {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  createdAt DateTime @default(now())
 }

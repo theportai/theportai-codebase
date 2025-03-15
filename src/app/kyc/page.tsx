@@ -13,6 +13,7 @@ export default function KYCPage() {
   const [fileName, setFileName] = useState("Choose file");
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  //const phone = localStorage.getItem("userPhone") || "";
 
 
   const formSteps = [
@@ -43,47 +44,62 @@ export default function KYCPage() {
   };
 
 
+
+  
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
-  
+
     try {
-      const formData = new FormData();
-  
-      // ✅ Ensure phone is explicitly defined and correctly typed
-      const phone: string | null = localStorage.getItem("userPhone");
-  
+      const phone = localStorage.getItem("userPhone");
       if (!phone) {
         alert("❌ Error: Phone number is missing!");
         setIsSubmitting(false);
         return;
       }
-  
-      // ✅ Append phone to formData so it's properly used
+
+      const formData = new FormData();
       formData.append("phone", phone);
       formData.append("fullName", fullName);
       formData.append("pan", pan);
       formData.append("aadhaar", aadhaar);
       if (file) formData.append("document", file);
-  
-      const response = await fetch("/api/kyc", {
-        method: "POST",
-        body: formData,
-      });
-  
-      const result = await response.json();
+
+      const response = await fetch("/api/kyc", { method: "POST", body: formData });
+
       if (!response.ok) {
-        throw new Error(result.error || "Failed to submit KYC");
+        throw new Error("Failed to submit KYC");
       }
-  
-      alert("✅ KYC Submitted Successfully!");
-      router.push("/welcome?kyc=progress");
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        alert(`❌ Error: ${error.message}`);
-      } else {
-        alert("❌ An unknown error occurred.");
-      }
+
+
+
+      console.log("✅ KYC Submitted Successfully!");
+
+      // 🔍 **Ensure API is updated before redirecting**
+      setTimeout(async () => {
+        const statusResponse = await fetch(`/api/user-status?phone=${phone}`);
+        const statusData = await statusResponse.json();
+
+        if (statusResponse.ok && statusData.kycStatus) {
+          console.log("📥 Latest KYC Status:", statusData.kycStatus);
+
+          if (statusData.kycStatus === "APPROVED") {
+            router.replace("/dashboard");
+          } else {
+
+            //router.replace("/welcome?kyc=progress"); // ✅ Keep this for pending status
+
+            //router.replace("/welcome?kyc=progress"); (mistakes sala) :(
+            //router.replace("/dasboard"); (mistakes wo bhi spelling mistake bc dimag kharab hogaya tha sala) :(
+              router.replace("/dashboard");
+          }
+        }
+      }, 500); // Small delay to allow backend update
+
+
+    } catch (error) {
+      console.error("❌ KYC Submission Error:", error);
+      alert("❌ Submission failed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -131,8 +147,8 @@ export default function KYCPage() {
             >
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center text-lg mb-2 ${index <= currentStep
-                    ? "bg-gradient-to-r from-blue-500 to-purple-500"
-                    : "bg-gray-700"
+                  ? "bg-gradient-to-r from-blue-500 to-purple-500"
+                  : "bg-gray-700"
                   }`}
               >
                 {index < currentStep ? "✓" : step.icon}
@@ -179,8 +195,8 @@ export default function KYCPage() {
                   onClick={nextStep}
                   disabled={!fullName}
                   className={`w-full py-3 rounded-lg transition-all ${fullName
-                      ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                      : "bg-gray-700 cursor-not-allowed opacity-50"
+                    ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                    : "bg-gray-700 cursor-not-allowed opacity-50"
                     }`}
                 >
                   Continue
@@ -229,8 +245,8 @@ export default function KYCPage() {
                   onClick={nextStep}
                   disabled={!pan || !aadhaar}
                   className={`px-6 py-2 rounded-lg transition-all ${pan && aadhaar
-                      ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                      : "bg-gray-700 cursor-not-allowed opacity-50"
+                    ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                    : "bg-gray-700 cursor-not-allowed opacity-50"
                     }`}
                 >
                   Continue
@@ -291,8 +307,8 @@ export default function KYCPage() {
                   onClick={nextStep}
                   disabled={!file}
                   className={`px-6 py-2 rounded-lg transition-all ${file
-                      ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                      : "bg-gray-700 cursor-not-allowed opacity-50"
+                    ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                    : "bg-gray-700 cursor-not-allowed opacity-50"
                     }`}
                 >
                   Continue
@@ -353,8 +369,8 @@ export default function KYCPage() {
                   onClick={handleSubmit}
                   disabled={isSubmitting || !fullName || !pan || !aadhaar || !file}
                   className={`px-6 py-2 rounded-lg transition-all ${isSubmitting || !fullName || !pan || !aadhaar || !file
-                      ? "bg-gray-700 cursor-not-allowed opacity-50"
-                      : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                    ? "bg-gray-700 cursor-not-allowed opacity-50"
+                    : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
                     }`}
                 >
                   {isSubmitting ? (

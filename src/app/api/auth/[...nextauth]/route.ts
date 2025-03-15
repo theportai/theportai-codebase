@@ -14,6 +14,7 @@ export const authOptions: NextAuthOptions = {
         phone: { label: "Phone Number", type: "text", placeholder: "Enter your mobile number" },
         otp: { label: "OTP", type: "text", placeholder: "Enter OTP" },
       },
+
       async authorize(credentials) {
         if (!credentials?.phone || !credentials?.otp) {
           throw new Error("Missing phone or OTP");
@@ -34,11 +35,16 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid OTP");
         }
 
+        // ✅ Check if KYC is complete (PAN, Aadhaar, and Document URL should not be null)
+        const isKYCComplete = user.pan && user.aadhaar && user.documentUrl;
+        const redirectTo = isKYCComplete ? "/welcome" : "/kyc"; // ✅ Fix redirection logic
+
         return {
           id: user.id,
           phone: user.phone,
           kycStatus: user.kycStatus,
           role: user.role,
+          redirectTo, // ✅ Ensure redirect path is included
         };
       },
     }),
@@ -51,6 +57,7 @@ export const authOptions: NextAuthOptions = {
         token.phone = user.phone;
         token.kycStatus = user.kycStatus;
         token.role = user.role;
+        token.redirectTo = user.redirectTo; // ✅ Store redirect path in token
       }
       return token;
     },
@@ -62,6 +69,7 @@ export const authOptions: NextAuthOptions = {
         kycStatus: token.kycStatus as "PENDING" | "APPROVED" | "REJECTED",
         role: token.role as "USER" | "ADMIN",
       };
+      session.redirectTo = token.redirectTo as string | undefined; // ✅ Include redirect path in session
       return session;
     },
   },
