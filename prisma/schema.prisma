@@ -56,3 +56,21 @@ model CryptoPrice {
   volume    Float
   timestamp DateTime @default(now())
 }
+
+model TechnicalIndicators {
+  id          Int      @id @default(autoincrement()) // Unique ID
+  symbol      String   // BTCUSDT, ETHUSDT, etc.
+  timestamp   DateTime @unique // Unique timestamp for each indicator record
+  sma_14      Float    // Simple Moving Average (14)
+  ema_14      Float    // Exponential Moving Average (14)
+  rsi_14      Float    // Relative Strength Index (14)
+  macd        Float    // MACD Indicator
+  macd_signal Float    // MACD Signal Line
+  macd_hist   Float    // MACD Histogram
+  bb_high     Float    // Bollinger Bands - Upper Band
+  bb_mid      Float    // Bollinger Bands - Middle Band
+  bb_low      Float    // Bollinger Bands - Lower Band
+  trend       String   @default("Neutral ⚪") // Default: Neutral ⚪
+
+  @@unique([symbol, timestamp]) // Ensure unique records per symbol & timestamp
+}
