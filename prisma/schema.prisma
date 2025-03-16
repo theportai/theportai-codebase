@@ -44,3 +44,15 @@ model OtpRequest {
   phone     String   @unique
   createdAt DateTime @default(now())
 }
+
+
+model CryptoPrice {
+  id        String   @id @default(uuid())
+  symbol    String
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+  volume    Float
+  timestamp DateTime @default(now())
+}

@@ -5,21 +5,37 @@ import { useRouter } from "next/navigation";
 export default function Dashboard() {
   const router = useRouter();
   const [kycStatus, setKycStatus] = useState<string | null>(null);
-
+  
+  
   useEffect(() => {
+    let isMounted = true; // ✅ Prevent state update on unmounted component
+  
     async function fetchKYCStatus() {
-      const phone = localStorage.getItem("userPhone") || "";
+      const phone = localStorage.getItem("userPhone");
+      
+      // ✅ Check if phone number is missing
       if (!phone) {
         console.error("❌ No phone number found in localStorage.");
-        return;
+        return; // 🔴 Stop execution if phone number is missing
       }
-
+  
       try {
+        console.log(`🔍 Fetching KYC status for phone: ${phone}`);
         const response = await fetch(`/api/user-status?phone=${phone}`, { cache: "no-store" });
         const data = await response.json();
-
+        console.log("📥 API Response:", data);
+  
+        if (!isMounted) return; // ✅ Prevent updates if component is unmounted
+  
         if (response.ok && data.kycStatus) {
           setKycStatus(data.kycStatus);
+  
+          // ✅ Redirect based on KYC status
+          if (data.kycStatus === "APPROVED") {
+            setTimeout(() => router.push("/dashboard"), 1000);
+          } else if (data.kycStatus === "REJECTED") {
+            setTimeout(() => router.push("/kyc"), 1000);
+          }
         } else {
           console.error("❌ Error fetching KYC status:", data.error);
         }
@@ -27,16 +43,15 @@ export default function Dashboard() {
         console.error("❌ Failed to fetch KYC status:", error);
       }
     }
-
-    fetchKYCStatus();
-  }, []);
-
-  useEffect(() => {
-    if (kycStatus === "APPROVED") {
-      router.replace("/dashboard");
-    } else if (kycStatus === "REJECTED") {
-      router.replace("/welcome");
+  
+    // ✅ Only check KYC status if phone is present
+    if (localStorage.getItem("userPhone")) {
+      fetchKYCStatus();
     }
+  
+    return () => {
+      isMounted = false;
+    };
   }, [kycStatus, router]);
 
   return (

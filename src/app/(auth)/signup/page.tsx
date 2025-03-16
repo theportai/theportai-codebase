@@ -48,30 +48,36 @@ export default function SignupPage() {
       setErrorMessage("Please enter a valid 10-digit phone number");
       return;
     }
-
+  
     try {
       const response = await fetch("/api/otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, type: "send" }),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "An error occurred while sending OTP");
       }
-
+  
       const data = await response.json();
       console.log("✅ OTP Sent Successfully:", data);
+  
+      // 🔥 **Fix: Save phone number in localStorage before navigating**
+      localStorage.setItem("userPhone", phone);  
+      console.log("📲 Phone saved in localStorage:", localStorage.getItem("userPhone"));
+  
+      // ✅ Redirect to OTP verification page
       router.push(`/verify-otp?phone=${phone}`);
     } catch (error: unknown) {
       console.error("❌ Error Sending OTP:", error);
-
+  
       let errorMessage = "An error occurred. Please try again.";
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-
+  
       setIsValid(false);
       setErrorMessage(errorMessage);
     }
