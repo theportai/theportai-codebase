@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";  // ✅ Fix import
 import twilio from "twilio";
-import prisma from "@/lib/prisma";
+import prisma from "../../../lib/prisma.mjs";
 import jwt from "jsonwebtoken";
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
@@ -8,7 +8,6 @@ const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret"; // Ensure JWT_SE
 
 export async function POST(req: Request) {
   try {
-    
     // ✅ Parse request body safely
     const { phone, otp, type } = await req.json();
     console.log("📩 Received Request:", { phone, otp, type });
@@ -19,6 +18,41 @@ export async function POST(req: Request) {
     }
 
     if (type === "send") {
+      
+      // ✅ Check last OTP request timestamp (Rate Limiting)
+      const lastRequest = await prisma.otpRequest.findUnique({
+        where: { phone },
+      });
+
+      if (lastRequest) {
+        const timeSinceLastRequest = (new Date().getTime() - new Date(lastRequest.createdAt).getTime()) / 1000;
+        
+        if (timeSinceLastRequest < 60) { // ⏳ Limit to 1 request per minute
+          console.warn("⚠️ Too many OTP requests for phone:", phone);
+          return NextResponse.json(
+            { error: "Too many requests. Try again in a minute." },
+            { status: 429 }
+          );
+        }
+      }
+
+      // ✅ Check for Twilio rate limit (Max 5 OTPs per hour)
+      const oneHourAgo = new Date(new Date().getTime() - 60 * 60 * 1000);
+      const otpCount = await prisma.otpRequest.count({
+        where: {
+          phone,
+          createdAt: { gte: oneHourAgo },
+        },
+      });
+
+      if (otpCount >= 10) {
+        console.warn("⚠️ Twilio rate limit exceeded for phone:", phone);
+        return NextResponse.json(
+          { error: "Too many OTP requests. Try again later." },
+          { status: 429 }
+        );
+      }
+
       // ✅ Ensure user exists in the database
       const user = await prisma.user.upsert({
         where: { phone },
@@ -33,15 +67,37 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Server error: Missing Twilio Service ID." }, { status: 500 });
       }
 
+      // ✅ Store OTP request in database (Ensure Unique Constraint is Handled)
+      await prisma.otpRequest.upsert({
+        where: { phone },
+        update: { createdAt: new Date() }, // Update the timestamp to allow reattempts
+        create: { phone },
+      });
 
-      
       // ✅ Send OTP using Twilio
       console.log("📤 Sending OTP to:", phone);
-      const verification = await client.verify.v2.services(process.env.TWILIO_SERVICE_ID!)
-        .verifications.create({ to: `+91${phone}`, channel: "sms" });
+      try {
+        const verification = await client.verify.v2.services(process.env.TWILIO_SERVICE_ID!)
+          .verifications.create({ to: `+91${phone}`, channel: "sms" });
 
-      console.log("📨 Twilio Response:", verification);
-      return NextResponse.json({ message: "OTP sent successfully!" }, { status: 200 });
+        console.log("📨 Twilio Response:", verification);
+        return NextResponse.json({ message: "OTP sent successfully!" }, { status: 200 });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (twilioError: any) {
+        console.error("⚠️ Twilio API Error:", twilioError);
+
+        if (twilioError.code === 20429) { // Twilio Too Many Requests
+          return NextResponse.json(
+            { error: "Twilio is temporarily blocking OTPs. Try again in 5 minutes." },
+            { status: 429 }
+          );
+        }
+
+        return NextResponse.json(
+          { error: "Failed to send OTP. Please try again later." },
+          { status: 500 }
+        );
+      }
 
     } else if (type === "verify") {
       if (!otp) {
@@ -49,8 +105,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "OTP is required for verification." }, { status: 400 });
       }
 
-      
-      
       // ✅ Verify OTP with Twilio
       console.log("🔎 Verifying OTP...");
       const verificationCheck = await client.verify.v2.services(process.env.TWILIO_SERVICE_ID!)
@@ -67,8 +121,6 @@ export async function POST(req: Request) {
         data: { isVerified: true }, // Fixed: Ensuring isVerified exists in Prisma
       });
 
-      
-      
       // ✅ Generate JWT token for authentication
       const token = jwt.sign({ phone }, JWT_SECRET, { expiresIn: "7d" });
 

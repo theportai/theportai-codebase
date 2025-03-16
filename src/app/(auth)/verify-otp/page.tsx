@@ -97,32 +97,34 @@ export default function VerifyOTP() {
       setError("Please enter a valid 6-digit OTP");
       return;
     }
-    
+  
     setIsLoading(true);
     setError("");
-
+  
     try {
       const res = await fetch("/api/otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, otp: otpString, type: "verify" }),
       });
-
+  
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Invalid OTP. Please try again.");
         setIsLoading(false);
         return;
       }
-
-      // Store token for authentication
+  
+      // ✅ Store token for authentication
       localStorage.setItem("token", data.token);
-
       localStorage.setItem("userPhone", phone);
-
-      // Redirect to KYC page
-      router.push("/welcome");
-
+  
+      // ✅ Check for redirect path in API response
+      const redirectPath = data.redirectTo || "/welcome"; 
+  
+      // ✅ Redirect to correct page based on user KYC status
+      router.push(redirectPath);
+  
     } catch (error) {
       console.error("OTP Verification Error:", error);
       setError("Something went wrong. Please try again.");
@@ -130,6 +132,8 @@ export default function VerifyOTP() {
       setIsLoading(false);
     }
   };
+
+
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">

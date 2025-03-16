@@ -1,0 +1,13 @@
+-- CreateTable
+CREATE TABLE "CryptoPrice" (
+    "id" TEXT NOT NULL,
+    "symbol" TEXT NOT NULL,
+    "open" DOUBLE PRECISION NOT NULL,
+    "high" DOUBLE PRECISION NOT NULL,
+    "low" DOUBLE PRECISION NOT NULL,
+    "close" DOUBLE PRECISION NOT NULL,
+    "volume" DOUBLE PRECISION NOT NULL,
+    "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CryptoPrice_pkey" PRIMARY KEY ("id")
+);
