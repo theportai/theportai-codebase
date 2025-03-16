@@ -90,7 +90,7 @@ export default function KYCPage() {
             //router.replace("/welcome?kyc=progress"); // ✅ Keep this for pending status
 
             //router.replace("/welcome?kyc=progress"); (mistakes sala) :(
-            //router.replace("/dasboard"); (mistakes wo bhi spelling mistake bc dimag kharab hogaya tha sala) :(
+            //router.replace("/dasboard"); (mistakes wo bhi spelling mistake shit man dimag kharab hogaya tha sala) :(
               router.replace("/dashboard");
           }
         }
