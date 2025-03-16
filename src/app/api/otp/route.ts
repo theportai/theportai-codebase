@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server.js";  // ✅ Fix import
 import twilio from "twilio";
-import prisma from "@/lib/prisma";
+import prisma from "../../../lib/prisma.mjs";
 import jwt from "jsonwebtoken";
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);

@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
-import cloudinary from "@/lib/cloudinary";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server.js";  
+import cloudinary from "@/lib/cloudinary.js";  
+import prisma from "../../../lib/prisma.mjs";
 import { v4 as uuidv4 } from "uuid";
 
 export async function POST(req: Request) {

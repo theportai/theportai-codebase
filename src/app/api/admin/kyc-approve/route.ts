@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server.js";  // ✅ Fix import
+import prisma from "../../../../lib/prisma.mjs";
 
 // Approve KYC
 export async function POST(req: Request) {

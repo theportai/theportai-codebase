@@ -5,7 +5,7 @@ const BINANCE_BASE_URL = "https://api.binance.com/api/v3";
 const SOCKET_URL = "wss://stream.binance.com:9443/ws";
 
 // Fetch market data (latest price, 24hr change, volume)
-export async function getMarketData(symbol: string) {
+export async function getMarketData(symbol) {
   try {
     const response = await axios.get(`${BINANCE_BASE_URL}/ticker/24hr`, {
       params: { symbol: symbol.toUpperCase() },
@@ -16,8 +16,9 @@ export async function getMarketData(symbol: string) {
     return null;
   }
 }
+
 // WebSocket connection for real-time price updates
-export function subscribeToMarket(symbol: string, onMessage: (data: object) => void) {
+export function subscribeToMarket(symbol, onMessage) {
   const ws = new WebSocket(`${SOCKET_URL}/${symbol.toLowerCase()}@ticker`);
 
   ws.on("message", (data) => {

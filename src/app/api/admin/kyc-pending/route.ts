@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server.js";  // ✅ Fix import
+import prisma from "../../../../lib/prisma.mjs";
 
 // Fetch all users with PENDING KYC
 export async function GET() {

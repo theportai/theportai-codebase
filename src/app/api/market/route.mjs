@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { getMarketData } from "@/utils/binance";
+import prisma from "../../lib/prisma.mjs";  // ✅ Use `.mjs`
+import { getMarketData } from "../../utils/binance.mjs";  // ✅ Use `.mjs`
 
-export async function GET(req: Request) {
+export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const symbol = searchParams.get("symbol")?.toUpperCase() || "BTCUSDT";
@@ -17,14 +17,12 @@ export async function GET(req: Request) {
         open: parseFloat(marketData.openPrice),
         high: parseFloat(marketData.highPrice),
         low: parseFloat(marketData.lowPrice),
-        close: parseFloat(marketData.lastPrice),
-        volume: parseFloat(marketData.volume),
       },
     });
 
     return NextResponse.json({ message: "Market data updated", marketData });
   } catch (error) {
-    console.error("❌ Error fetching market data:", error);
-    return NextResponse.json({ error: "Failed to fetch market data" }, { status: 500 });
+    console.error("❌ Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
