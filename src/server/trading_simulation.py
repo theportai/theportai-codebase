@@ -86,14 +86,14 @@ def apply_strategy(df, strategy):
                 trade_history.append((df.iloc[i]["timestamp"], "SELL", current_price, profit))
                 position = 0
 
-        # ✅ Breakout Strategy (Improved & Fixed)
+        # ✅ Breakout Strategy (Fixed)
         elif strategy == "breakout":
             if i >= 30:  # Ensure at least 30 past candles exist
                 rolling_max = df["bb_mid"].rolling(30).max().shift(1).iloc[i]
                 rolling_min = df["bb_mid"].rolling(30).min().shift(1).iloc[i]
-                threshold = rolling_max * 1.0005  
-                stop_loss = rolling_min * 0.9925  
-                take_profit = threshold * 1.006  
+                threshold = rolling_max  # Just use the rolling max as the threshold
+                stop_loss = current_price * 0.99  # 1% below entry
+                take_profit = current_price * 1.015  # 1.5% above entry  
 
                 # ✅ Ensure values are valid
                 if np.isnan(rolling_max) or np.isnan(rolling_min):
@@ -103,11 +103,10 @@ def apply_strategy(df, strategy):
                 print(f"🔍 i: {i}, Price: {current_price:.2f}, Max: {rolling_max:.2f}, Min: {rolling_min:.2f}, "
                     f"Threshold: {threshold:.2f}, Stop-loss: {stop_loss:.2f}, TP: {take_profit:.2f}")
 
-                # ✅ Buy Condition (More Aggressive)
-                if position == 0 and balance > trade_size and (current_price >= threshold * 1.0002) and (i - last_trade_index > 3):
-                    print(f"🚀 CONFIRMED BREAKOUT at {current_price:.2f} (Threshold: {threshold:.2f})")
+                # ✅ Buy Condition (More realistic breakout detection)
+                if position == 0 and (current_price > rolling_max) and (i - last_trade_index > 3):
+                    print(f"🚀 CONFIRMED BREAKOUT at {current_price:.2f} (Previous Max: {rolling_max:.2f})")
                     position = trade_size / current_price
-                    balance -= trade_size
                     trade_history.append((df.iloc[i]["timestamp"], "BUY", current_price, np.nan))
                     last_trade_index = i
                     open_trade_counter = 0
@@ -139,7 +138,7 @@ def apply_strategy(df, strategy):
                         position = 0
                         print(f"⚠️ FORCED EXIT at {current_price:.2f} (Profit: {profit:.2f}, New Balance: {balance:.2f})")
 
-                    open_trade_counter += 1  # Increment open position counter  
+                    open_trade_counter += 1  # Increment open position counter
 
         # ✅ Momentum Strategy
         elif strategy == "momentum":
