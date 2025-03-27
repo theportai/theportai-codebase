@@ -1,8 +1,8 @@
-import pandas as pd
-import numpy as np
-from sqlalchemy import create_engine, text
+import pandas as pd # type: ignore
+import numpy as np # type: ignore
+from sqlalchemy import create_engine, text # type: ignore
 import os
-from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn.metrics import precision_score, recall_score, f1_score # type: ignore
 
 # Load database connection
 DB_URL = os.getenv("DATABASE_URL")

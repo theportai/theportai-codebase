@@ -1,7 +1,7 @@
-import pandas as pd
-import numpy as np
-import pandas_ta as ta
-from sqlalchemy import create_engine, text
+import pandas as pd # type: ignore
+import numpy as np # type: ignore
+import pandas_ta as ta # type: ignore
+from sqlalchemy import create_engine, text # type: ignore
 import os
 
 # ✅ Load Database URL
@@ -15,7 +15,7 @@ print(f"✅ Using DATABASE_URL: {DB_URL}")
 engine = create_engine(DB_URL)
 
 # ✅ Function to Fetch Market Data
-def fetch_market_data(symbol, limit=1000):
+def fetch_market_data(symbol, limit=5000):
     query = text(f"""
     SELECT timestamp, close
     FROM "CryptoPrice" 

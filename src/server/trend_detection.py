@@ -1,6 +1,6 @@
-import pandas as pd
-import numpy as np
-from sqlalchemy import create_engine, text
+import pandas as pd # type: ignore
+import numpy as np # type: ignore
+from sqlalchemy import create_engine, text # type: ignore
 import os
 
 DB_URL = os.getenv("DATABASE_URL")

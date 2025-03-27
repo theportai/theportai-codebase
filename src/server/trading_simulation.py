@@ -1,7 +1,7 @@
 import argparse
-import pandas as pd
-import numpy as np
-from sqlalchemy import create_engine, text
+import pandas as pd # type: ignore
+import numpy as np # type: ignore
+from sqlalchemy import create_engine, text # type: ignore
 import os
 import sys
 
@@ -85,7 +85,7 @@ def apply_strategy(df, strategy):
                 balance += profit  # Update balance
                 trade_history.append((df.iloc[i]["timestamp"], "SELL", current_price, profit))
                 position = 0
-
+        
         # ✅ Breakout Strategy (Fixed)
         elif strategy == "breakout":
             if i >= 30:  # Ensure at least 30 past candles exist
