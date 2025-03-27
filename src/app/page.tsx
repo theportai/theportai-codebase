@@ -31,14 +31,24 @@ export default function HomePage() {
   const [scrollY, setScrollY] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [, setRandomBars] = useState<{ height: number; color: string }[]>([]);
+  const [mounted, setMounted] = useState(false);
 
 
   // Track scroll position for navbar effects
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return; // Ensure code runs only after mounting
+
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", handleScroll);
+
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [mounted]);
+
+
 
 
   useEffect(() => {
@@ -82,7 +92,8 @@ export default function HomePage() {
   ];
 
 
-
+  
+  if (!mounted) return null; // Prevent SSR issues
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -469,3 +480,7 @@ export default function HomePage() {
     </div>
   );
 }
+
+
+
+// Date : 16th March (Created feature/week1-market-analysis)
