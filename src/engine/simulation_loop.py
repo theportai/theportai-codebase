@@ -40,24 +40,6 @@ def run_simulation_step(data):
 
 
 if __name__ == "__main__":
-    buy_data = {
-        'rsi': 28,
-        'macd': 1.2,
-        'sentiment_score': 0.4,
-        'momentum': 0.2,
-        'price': 63000
-    }
 
-    sell_data = {
-        'rsi': 75,
-        'macd': -1.5,
-        'sentiment_score': -0.6,
-        'momentum': -0.8,
-        'price': 65500
-    }
-
-    print("\n🔁 [STEP 1: BUY]")
-    run_simulation_step(buy_data)
-
-    print("\n🔁 [STEP 2: SELL]")
-    run_simulation_step(sell_data)
+    from src.engine.backtest_engine import run_backtest_from_data
+    run_backtest_from_data()
