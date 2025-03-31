@@ -1,13 +1,8 @@
 class SentimentAgent:
-    def __init__(self):
-        pass
-
-    def get_signal(self, data: dict) -> str:
-        score = data.get("sentiment_score", 0)
-
-        if score > 0.3:
-            return 'buy'
-        elif score < -0.3:
-            return 'sell'
-        else:
-            return 'hold'
+    def analyze(self, candle):
+        price_change = (candle["close"] - candle["open"]) / candle["open"]
+        if price_change > 0.01:
+            return "buy"
+        elif price_change < -0.01:
+            return "sell"
+        return "hold"

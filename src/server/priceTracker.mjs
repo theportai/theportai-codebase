@@ -1,5 +1,5 @@
-import { subscribeToMarket } from "../utils/binance.mjs"; // ✅ `.mjs`
-import prisma from "../lib/prisma.mjs"; // ✅ `.mjs`
+import { subscribeToMarket } from "../utils/binance.mjs"; 
+import prisma from "../lib/prisma.mjs"; 
 
 const trackPrice = async (symbol) => {
   subscribeToMarket(symbol, async (data) => {

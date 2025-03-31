@@ -2,14 +2,11 @@ class MarketAnalysisAgent:
     def __init__(self):
         pass
 
-    def get_signal(self, data: dict) -> str:
-        # Use RSI and MACD logic
-        rsi = data.get("rsi", 50)
-        macd = data.get("macd", 0)
+    def analyze(self, candle):
+        volume = candle.get('volume', 0)
 
-        if rsi < 30 and macd > 0:
+        if volume > 1000:
             return 'buy'
-        elif rsi > 70 and macd < 0:
+        elif volume < 500:
             return 'sell'
-        else:
-            return 'hold'
+        return 'hold'
