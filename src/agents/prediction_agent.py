@@ -2,12 +2,11 @@ class PredictionAgent:
     def __init__(self):
         pass
 
-    def get_signal(self, data: dict) -> str:
-        momentum = data.get("momentum", 0)
+    def analyze(self, candle):
+        momentum = candle.get('momentum', 0)
 
-        if momentum > 0.5:
+        if momentum > 0.4:
             return 'buy'
-        elif momentum < -0.5:
+        elif momentum < -0.4:
             return 'sell'
-        else:
-            return 'hold'
+        return 'hold'

@@ -14,43 +14,51 @@ class PortfolioState:
         self.logger = logger or TradeLogger()
         self.returns = []
 
-
     def buy(self, price):
-        if self.holdings == 0:
-            self.holdings = self.balance / price
-            self.entry_price = price
-            self.balance = 0
-            self.total_trades += 1
-            self.logger.log('buy', price)
-            print(f"💰 BOUGHT @ ${price} | Holdings: {self.holdings:.4f} BTC")
+        if self.holdings > 0:
+            print("⚠️ Already holding BTC. Skipping buy.")
+            return
+        if self.balance <= 0:
+            print("❌ BUY aborted: Insufficient balance.")
+            return
+
+        self.holdings = self.balance / price
+        self.entry_price = price
+        self.balance = 0
+        self.total_trades += 1
+        self.logger.log('buy', price)
+        print(f"💰 BOUGHT @ ${price} | Holdings: {self.holdings:.4f} BTC")
 
     def sell(self, price):
-        if self.holdings > 0:
-            proceeds = self.holdings * price
-            profit = proceeds - (self.holdings * self.entry_price)
-            trade_return = (price - self.entry_price) / self.entry_price
-            self.returns.append(trade_return)
-            self.balance = proceeds
-            self.realized_pnl += profit
-            self.trade_history.append({
-                "entry": self.entry_price,
-                "exit": price,
-                "profit": profit
-            })
-            if profit > 0:
-                self.winning_trades += 1
-            self.holdings = 0
-            self.entry_price = None
-            self.total_trades += 1
-            self.logger.log('sell', price, profit)
-            print(f"💸 SOLD @ ${price} | Profit: ${profit:.2f}")
+        if self.holdings <= 0:
+            print("❌ SELL aborted: No BTC holdings.")
+            return
+
+        proceeds = self.holdings * price
+        profit = proceeds - (self.holdings * self.entry_price)
+        trade_return = (price - self.entry_price) / self.entry_price
+        self.returns.append(trade_return)
+        self.balance = proceeds
+        self.realized_pnl += profit
+        self.trade_history.append({
+            "entry": self.entry_price,
+            "exit": price,
+            "profit": profit
+        })
+        if profit > 0:
+            self.winning_trades += 1
+        self.holdings = 0
+        self.entry_price = None
+        self.total_trades += 1
+        self.logger.log('sell', price, profit)
+        print(f"💸 SOLD @ ${price} | Profit: ${profit:.2f}")
 
     def status(self):
         unrealized_pnl = 0
         if self.holdings and self.entry_price:
             current_value = self.holdings * self.entry_price
             unrealized_pnl = current_value - (self.holdings * self.entry_price)
-        
+
         if self.returns:
             sharpe = calculate_sharpe_ratio(self.returns)
             print(f"Sharpe Ratio: {sharpe}")
@@ -61,4 +69,5 @@ class PortfolioState:
         print(f"Realized PnL: ${self.realized_pnl:.2f}")
         print(f"Total Trades: {self.total_trades}")
         print(f"Winning Trades: {self.winning_trades}")
-        print(f"Win Rate: {self.winning_trades / self.total_trades * 100:.1f}%\n" if self.total_trades else "")
+        if self.total_trades:
+            print(f"Win Rate: {self.winning_trades / self.total_trades * 100:.1f}%\n")
