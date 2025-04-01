@@ -8,6 +8,13 @@ import matplotlib.pyplot as plt  # type: ignore
 TRADE_LOG_PATH = Path("logs/trade_log.csv")
 TREND_MATCH_LOG_PATH = Path("logs/trend_match_log.csv")
 
+# Asset Accuracy Data (Example format, replace with actual data from your system)
+# You will need to dynamically update this dictionary in your system
+asset_accuracy = {
+    "btcusdt": {"correct_predictions": 50, "total_predictions": 60},
+    "ethusdt": {"correct_predictions": 45, "total_predictions": 60},
+}
+
 # UI Setup
 st.set_page_config(page_title="📊 PortAI Realtime Cockpit", layout="wide")
 st.title("📊 PortAI Realtime Trading Dashboard")
@@ -61,5 +68,11 @@ while True:
             st.pyplot(fig)
         else:
             st.warning("📉 trend_match_log.csv not found yet.")
+
+        # Step 3: Display Per-Asset Accuracy in the dashboard
+        st.subheader("🔍 Per-Asset Accuracy")
+        for symbol, accuracy_data in asset_accuracy.items():
+            accuracy_percentage = (accuracy_data["correct_predictions"] / accuracy_data["total_predictions"]) * 100
+            st.write(f"**{symbol.upper()}**: {accuracy_percentage:.2f}% Accuracy")
 
     time.sleep(5)
