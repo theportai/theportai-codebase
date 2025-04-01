@@ -1,29 +1,34 @@
 import asyncio
 import json
-import websockets # type: ignore
+import websockets  # type: ignore
 from datetime import datetime
-#import sys
-#import os
 
+# ✅ Agent imports
 from src.agents.market_analysis import MarketAnalysisAgent
 from src.agents.sentiment_agent import SentimentAgent
 from src.agents.prediction_agent import PredictionAgent
 from src.agents.decision_maker import DecisionMaker
+
+# ✅ Portfolio & Logger
 from src.engine.portfolio_state import PortfolioState
 from src.engine.trade_logger import TradeLogger
 
-#sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+# ✅ ML Feature generator
+from src.ml.feature_engineering import generate_features_labels
 
-# Binance 1m Kline WebSocket URL
+# Global live candle buffer
+live_candles = []
+
+# WebSocket URL
 BINANCE_WS_URL = "wss://stream.binance.com:9443/ws/btcusdt@kline_1m"
 
-# Setup Agents
+# Setup agents
 market_agent = MarketAnalysisAgent()
 sentiment_agent = SentimentAgent()
 prediction_agent = PredictionAgent()
 decision_maker = DecisionMaker(quorum=2)
 
-# Portfolio and Logger
+# Setup portfolio
 logger = TradeLogger()
 portfolio = PortfolioState(starting_balance=10000, logger=logger)
 
@@ -35,7 +40,7 @@ def enrich_live_candle(kline):
         "high": float(kline["h"]),
         "low": float(kline["l"]),
         "close": float(kline["c"]),
-        "volume": float(kline["v"])
+        "volume": float(kline["v"]),
     }
 
 
@@ -43,10 +48,24 @@ async def handle_kline_message(candle):
     price = candle["close"]
     timestamp = candle["timestamp"]
 
-    # Run Agents
+    # Step 1: Add new candle to live buffer
+    live_candles.append(candle)
+
+    # Step 2: Get ML prediction only if enough candles available
+    if len(live_candles) > 30:
+        try:
+            X_live, _ = generate_features_labels(live_candles[-50:])  # take last 50 for features
+            last_features = X_live.iloc[-1:]
+            prediction_signal = prediction_agent.analyze(last_features)
+        except Exception as e:
+            print("⚠️ PredictionAgent ML inference failed:", str(e))
+            prediction_signal = "hold"
+    else:
+        prediction_signal = "hold"
+
+    # Run other agents
     market_signal = market_agent.analyze(candle)
     sentiment_signal = sentiment_agent.analyze(candle)
-    prediction_signal = prediction_agent.analyze(candle)
 
     signals = {
         "market_analysis": market_signal,
@@ -77,7 +96,7 @@ async def run_live_simulation():
         async for message in websocket:
             data = json.loads(message)
 
-            if "k" in data and data["k"]["x"]:  # x=True means candle closed
+            if "k" in data and data["k"]["x"]:  # x=True = candle closed
                 kline = data["k"]
                 candle = enrich_live_candle(kline)
                 await handle_kline_message(candle)
