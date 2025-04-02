@@ -53,8 +53,7 @@ asset_accuracy = {
 }
 
 
-# Create a custom PortfolioReporter class implementation
-# This is a temporary fix to debug the division by zero error
+
 class SafePortfolioReporter:
     def __init__(self, asset_dict, asset_accuracy):
         self.asset_dict = asset_dict
@@ -98,10 +97,10 @@ class SafePortfolioReporter:
         except Exception as e:
             print(f"⚠️ Error in generate_report: {str(e)}")
 
-# ✅ Use the safe portfolio reporter
+
 portfolio_reporter = SafePortfolioReporter(asset_dict, asset_accuracy)
 
-# ✅ Trade Logger shared across assets
+
 logger = TradeLogger()
 
 BASE_URL = "https://testnet.binance.vision/api/v3"
@@ -148,7 +147,7 @@ async def handle_kline_message(symbol: str, candle: dict):
     price = candle["close"]
 
     # Debug what keys are actually in the candle
-    print(f"DEBUG: Candle keys: {candle.keys()}")
+    #print(f"DEBUG: Candle keys: {candle.keys()}")
 
 
     # Safe access to timestamp, with fallback
@@ -194,9 +193,7 @@ async def handle_kline_message(symbol: str, candle: dict):
     final_decision = decision_maker.decide(signals)
 
     print(f"\n🕒 {timestamp_str} | [{symbol.upper()}] PRICE: {price}")
-    #print(f"\n🕒 {timestamp} | [{symbol.upper()}] PRICE: {price}")
-    #print(f"\n🕒 {candle['timestamp_str']} | [{symbol.upper()}] PRICE: {price}")
-    #print(f"\n🕒 {timestamp.strftime('%Y-%m-%d %H:%M:%S')} | [{symbol.upper()}] PRICE: {price}")
+    
     
     
     print(f"Signals: {signals} → Final Decision: {final_decision}")
@@ -228,7 +225,7 @@ async def handle_kline_message(symbol: str, candle: dict):
     elif final_decision == "sell" and asset.holdings > 0:
         asset.sell(price)
     else:
-        print("⚠️ Hold - No action")
+        print("🛑🛑🛑🛑🛑✋✋✋⏳⏳⏳⏸️⏸️⏸️ Hold - No action ⏸️⏸️⏸️⏳⏳⏳✋✋✋🛑🛑🛑🛑🛑")
 
     # Update asset status
     asset.status()
@@ -264,9 +261,9 @@ async def run_live_simulation():
                         if kline["x"]:  # candle closed
                             symbol = stream.split("@")[0]
                             try:
-                                print("DEBUG: About to enrich candle")
+                                #print("DEBUG: About to enrich candle")
                                 candle = enrich_candle(kline)
-                                print("DEBUG: Candle enriched successfully")
+                                #print("DEBUG: Candle enriched successfully")
                                 await handle_kline_message(symbol, candle)
                             except Exception as e:
                                 print(f"⚠️ Error in candle processing: {str(e)}")
