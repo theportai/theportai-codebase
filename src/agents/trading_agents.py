@@ -6,13 +6,19 @@ from datetime import datetime
 import logging
 from src.utils.enhance_trade_logging import TradeLogger
 from .sentiment_fetcher import get_sentiment_scores
+from src.agents.risk_manager import RiskManager
 
-
+# Initialize once
+risk_manager = RiskManager({
+    "BTCUSDT": 0.001,  # 0.1% of portfolio 
+    "ETHUSDT": 0.01,   # 1% of portfolio
+    "SOLUSDT": 0.005   # 0.5% of portfolio
+})
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger('PortAI-Trading')
+logger = logging.getLogger('PortAI-Trading-Agents')
 
 class PredictionAgent:
     def __init__(self):
@@ -457,12 +463,18 @@ class DecisionMaker:
         
         # Initialize TradeLogger
         self.trade_logger = trade_logger or TradeLogger()
-        #self.trade_logger = TradeLogger()
         
         # Add trade statistics tracking
         self.trade_stats = {}
         self.rolling_window_size = 10
-        
+
+        # Initialize risk manager
+        self.risk_manager = RiskManager({
+            "BTCUSDT": 0.001,  # 0.1% of portfolio 
+            "ETHUSDT": 0.01,   # 1% of portfolio
+            "SOLUSDT": 0.005   # 0.5% of portfolio
+        })
+            
     def update_rolling_accuracy(self, symbol, correct):
         """Update rolling accuracy metrics for a symbol"""
         if symbol not in self.trade_stats:
@@ -554,6 +566,20 @@ class DecisionMaker:
         else:
             final_confidence = hold_percentage
             
+        # Risk manager integration - check limits before finalizing decision
+        if decision in ["buy", "sell"] and symbol:
+            # Estimate trade amount based on your system's position sizing
+            # This is a placeholder - replace with your actual position sizing logic 
+            estimated_trade_amount = 0.001  # Example amount
+            
+            # Get portfolio value if available, otherwise pass None
+            portfolio_value = None  # Replace with actual portfolio value if available
+            
+            # Check if this trade is within risk limits
+            if not self.risk_manager.is_within_limit(symbol, estimated_trade_amount, portfolio_value):
+                logger.info(f"Risk manager overriding {decision} to hold due to exposure limits")
+                decision = "hold"
+            
         # Log trade if a decision to buy or sell is made and we have symbol and price info
         if decision in ["buy", "sell"] and symbol and current_price:
             # You'll need to implement logic to determine if trade was correct
@@ -592,3 +618,20 @@ class DecisionMaker:
         
         logger.info(f"Final decision: {decision} (consecutive count: {self.decision_count})")
         return decision
+        
+    def execute_trade(self, symbol, amount, action, price):
+        """Execute trade and update risk manager exposure"""
+        # Your existing trade execution code would go here
+        
+        # After successful execution, update risk manager
+        self.risk_manager.update_exposure(symbol, amount, action, price)
+        
+        # If you're tracking PnL, update that too
+        if hasattr(self, 'portfolio') and hasattr(self.portfolio, 'value'):
+            pnl = self.calculate_trade_pnl()  # Replace with your actual PnL calculation
+            self.risk_manager.record_pnl(pnl, self.portfolio.value)
+            
+    def calculate_trade_pnl(self):
+        """Placeholder for PnL calculation logic"""
+        # Implement your actual PnL calculation here
+        return 0.0

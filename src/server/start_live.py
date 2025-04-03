@@ -5,23 +5,49 @@ from datetime import datetime
 import hvac # type: ignore
 import os
 import requests # type: ignore
-
 from src.utils.enhance_trade_logging import TradeLogger  
 from src.agents.portfolio_manager import PortfolioManager  
-
-# ✅ Agent imports
 from src.agents.trading_agents import MarketAnalysisAgent, SentimentAgent, PredictionAgent, DecisionMaker # type: ignore
 from src.engine.portfolio_report import PortfolioReporter
-
-# ✅ Portfolio engine
 from src.engine.asset_manager import Asset
-
-# ✅ ML feature generator
 from src.ml.feature_engineering import generate_features_labels
+from src.core.vault import Vault
+from fastapi import FastAPI # type: ignore
+from src.server.security import IPWhitelistMiddleware # type: ignore
+from fastapi import FastAPI, HTTPException # type: ignore
+from src.core.token_manager import TokenManager
+
+app = FastAPI()
+token_manager = TokenManager()
+
+
+@app.get("/health")
+async def health_check():
+    print("✅ Health check passed")
+    return {"status": "ok"}
+
+@app.post("/generate-token")
+def generate_token(agent_name: str):
+    token, expires_at = token_manager.generate_token(agent_name)
+    return {
+        "token": token,
+        "agent": agent_name,
+        "expires_at": expires_at.isoformat()
+    }
+
+# Add middleware for IP filtering
+app.add_middleware(IPWhitelistMiddleware)
 
 # Initialize Vault client
 client = hvac.Client(url=os.getenv("VAULT_ADDR"))
 client.token = os.getenv("VAULT_TOKEN")
+
+vault = Vault()
+BINANCE_API_KEY = vault.get_key("BINANCE_API_KEY", caller="start_live")
+BINANCE_SECRET = vault.get_key("BINANCE_SECRET", caller="start_live")
+
+
+
 
 # ✅ WebSocket streams for multiple assets
 BINANCE_STREAMS = [
@@ -40,7 +66,7 @@ market_agent = MarketAnalysisAgent()
 sentiment_agent = SentimentAgent()
 prediction_agent = PredictionAgent()
 # Use quorum=1 to get more trading signals
-decision_maker = DecisionMaker(quorum=1)
+#decision_maker = DecisionMaker(quorum=1)
 
 # ✅ Initialize assets portfolio with trade counters
 asset_dict = {
@@ -111,6 +137,7 @@ trade_logger = TradeLogger()
 decision_maker = DecisionMaker(quorum=1, trade_logger=trade_logger)
 portfolio_manager = PortfolioManager(asset_dict, asset_accuracy, "logs/snapshots")
 
+decision_maker.risk_manager.integrate_with_decision_maker(decision_maker)
 
 BASE_URL = "https://testnet.binance.vision/api/v3"
 
@@ -128,13 +155,10 @@ def place_order(symbol, side, quantity, price):
     return response.json()
 
 def get_binance_api_key():
-    api_key = "G63G6MNAzcR600tF5kzTwTHnZmt1qvMKIsEjSlp9sd6DPBf7HdxNAr4bxDB97pXG"
-    print(f"API Key: {api_key}")
-    return api_key
+    return BINANCE_API_KEY
 
 def get_binance_secret_key():
-    api_secret = "UZ4GbLXTWLQB3ZFrkpQ5eF0YU5CrERJ0WmgYBqKA7uLd46WdIZ0jJ7GPmAix1C"
-    return api_secret
+    return BINANCE_SECRET
 
 def enrich_candle(kline):
     dt_obj = datetime.fromtimestamp(int(kline["t"]) / 1000)
@@ -259,7 +283,7 @@ async def handle_kline_message(symbol: str, candle: dict):
         if last_price and price > last_price:
             asset.win_count = getattr(asset, 'win_count', 0) + 1
 
-            
+
         # Log the sell decision with confidence
         print(f"🔴 SELL EXECUTED at ${price} with confidence {confidence:.2f}")
     else:
