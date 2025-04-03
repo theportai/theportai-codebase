@@ -17,6 +17,7 @@ from src.server.security import IPWhitelistMiddleware # type: ignore
 from fastapi import FastAPI, HTTPException # type: ignore
 from src.core.token_manager import TokenManager
 from pydantic import BaseModel # type: ignore
+from src.utils.audit_logger import log_event
 
 
 app = FastAPI()
@@ -44,6 +45,8 @@ def generate_token(request: TokenRequest):
         token = result
         # Create a default expiration time if needed
         expires_at = datetime.now()
+           
+    log_event("token_generated", f"Token generated for {request.agent_name}", agent=request.agent_name)
     
     return {
         "token": token,

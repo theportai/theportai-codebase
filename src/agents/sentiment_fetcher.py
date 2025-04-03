@@ -11,6 +11,7 @@ import csv
 from pathlib import Path
 from src.core.vault import Vault
 from src.core.token_manager import TokenManager
+from src.utils.audit_logger import log_event
 
 
 # Initialize the Vault
@@ -218,5 +219,6 @@ if __name__ == "__main__":
         print("❌ Invalid or expired token. Access denied.")
         sys.exit(1)
 
+    log_event("agent_execution", "Sentiment agent started with valid token", agent="sentiment_agent")
     # Only if token is valid, run sentiment fetch
     get_sentiment_scores()
