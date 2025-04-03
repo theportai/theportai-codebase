@@ -16,6 +16,8 @@ from fastapi import FastAPI # type: ignore
 from src.server.security import IPWhitelistMiddleware # type: ignore
 from fastapi import FastAPI, HTTPException # type: ignore
 from src.core.token_manager import TokenManager
+from pydantic import BaseModel # type: ignore
+
 
 app = FastAPI()
 token_manager = TokenManager()
@@ -26,12 +28,26 @@ async def health_check():
     print("✅ Health check passed")
     return {"status": "ok"}
 
+class TokenRequest(BaseModel):
+    agent_name: str
+
 @app.post("/generate-token")
-def generate_token(agent_name: str):
-    token, expires_at = token_manager.generate_token(agent_name)
+def generate_token(request: TokenRequest):
+    result = token_manager.generate_token(request.agent_name)
+    
+    # Handle the case where generate_token returns more than 2 values
+    if isinstance(result, tuple) and len(result) >= 2:
+        token = result[0]
+        expires_at = result[1]
+    else:
+        # If it returns a single value (like a dictionary or token string)
+        token = result
+        # Create a default expiration time if needed
+        expires_at = datetime.now()
+    
     return {
         "token": token,
-        "agent": agent_name,
+        "agent": request.agent_name,
         "expires_at": expires_at.isoformat()
     }
 
