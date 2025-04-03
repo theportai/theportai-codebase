@@ -9,8 +9,22 @@ from nltk.sentiment import SentimentIntensityAnalyzer # type: ignore
 from dotenv import load_dotenv # type: ignore
 import csv
 from pathlib import Path
+from src.core.vault import Vault
+from src.core.token_manager import TokenManager
 
+
+# Initialize the Vault
+vault = Vault()
 load_dotenv()
+
+token_manager = TokenManager()
+
+
+# Retrieve API keys from Vault
+NEWS_API_KEY = vault.get_key("NEWS_API_KEY", caller="sentiment_agent")
+REDDIT_CLIENT_ID = vault.get_key("REDDIT_CLIENT_ID", caller="sentiment_agent") 
+REDDIT_SECRET = vault.get_key("REDDIT_SECRET", caller="sentiment_agent")
+REDDIT_USER_AGENT = vault.get_key("REDDIT_USER_AGENT", caller="sentiment_agent")
 
 # Suppress SSL warnings as a workaround for certificate issues
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -23,25 +37,24 @@ sia = SentimentIntensityAnalyzer()
 SENTIMENT_LOG_PATH = Path("logs/sentiment_log.csv")
 
 
-# 🔐 Check environment variables and provide defaults for testing
 def check_env_vars():
     missing_vars = []
-    env_vars = {
-        "NEWS_API_KEY": os.getenv("NEWS_API_KEY"),  # Updated to match your .env
-        "REDDIT_CLIENT_ID": os.getenv("REDDIT_CLIENT_ID"),
-        "REDDIT_SECRET": os.getenv("REDDIT_SECRET"),
-        "REDDIT_USER_AGENT": os.getenv("REDDIT_USER_AGENT")
+    api_keys = {
+        "NEWS_API_KEY": NEWS_API_KEY,  
+        "REDDIT_CLIENT_ID": REDDIT_CLIENT_ID,
+        "REDDIT_SECRET": REDDIT_SECRET,
+        "REDDIT_USER_AGENT": REDDIT_USER_AGENT
     }
     
-    for key, value in env_vars.items():
+    for key, value in api_keys.items():
         if not value:
             missing_vars.append(key)
     
     if missing_vars:
-        print(f"⚠️ Warning: Missing environment variables: {', '.join(missing_vars)}")
+        print(f"⚠️ Warning: Missing keys: {', '.join(missing_vars)}")
         print("⚠️ Some sentiment sources might return default values")
     
-    return env_vars
+    return api_keys
 
 # 📡 NEWS API
 def get_news_sentiment(api_key):
@@ -171,14 +184,14 @@ def log_sentiment_to_csv(scores):
 
 # 🚀 Master Score Aggregator
 def get_sentiment_scores():
-    env_vars = check_env_vars()
+    api_keys = check_env_vars()
     
-    news = get_news_sentiment(env_vars["NEWS_API_KEY"])  # Updated to match your .env
+    news = get_news_sentiment(NEWS_API_KEY)
     twitter = get_twitter_sentiment_alt()  # Using alternative Twitter method
     reddit = get_reddit_sentiment(
-        env_vars["REDDIT_CLIENT_ID"], 
-        env_vars["REDDIT_SECRET"],
-        env_vars["REDDIT_USER_AGENT"]
+        REDDIT_CLIENT_ID, 
+        REDDIT_SECRET,
+        REDDIT_USER_AGENT
     )
     
     final = round((news + twitter + reddit) / 3, 4)
@@ -194,4 +207,16 @@ def get_sentiment_scores():
 
 # Execute when run directly
 if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 2:
+        print("⚠️ Please provide a token: `python -m src.agents.sentiment_fetcher <token>`")
+        sys.exit(1)
+
+    token = sys.argv[1]
+
+    if not token_manager.validate_token(token, "sentiment_agent"):
+        print("❌ Invalid or expired token. Access denied.")
+        sys.exit(1)
+
+    # Only if token is valid, run sentiment fetch
     get_sentiment_scores()
