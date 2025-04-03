@@ -6,9 +6,16 @@ from pathlib import Path
 import sys
 import os
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+from src.utils.audit_logger import log_event
+
 # Add the project root to the path to allow importing from src
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from src.agents.sentiment_fetcher import get_sentiment_scores
+from src.core.token_manager import TokenManager
+
+# Initialize TokenManager
+tm = TokenManager()
 
 # Paths
 TRADE_LOG_DIR = Path("logs/trades")
@@ -23,10 +30,48 @@ asset_accuracy = {
 
 # UI Setup
 st.set_page_config(page_title="📈 PortAI Dashboard", layout="wide")
+
+# Session state for user authentication
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+# Add logout option in sidebar (outside the main loop to prevent duplicate widget ID errors)
+if st.session_state.authenticated:
+    if st.sidebar.button("🔒 Logout", key="logout_button"):
+        st.session_state.authenticated = False
+        st.rerun()
+
+# ====== AUTHENTICATION SECTION ======
+if not st.session_state.authenticated:
+    st.title("🔐 Secure PortAI Dashboard Login")
+
+    # Prompt for token input
+    token_input = st.text_input("Enter your temporary access token:", type="password")
+
+    if st.button("Verify Token", key="verify_token_button"):
+        if tm.validate_token(token_input, agent_name="sentiment_agent"):
+            st.session_state.authenticated = True
+            st.success("✅ Access granted. Welcome to the dashboard!")
+            st.rerun()  # Using st.rerun() instead of experimental_rerun
+        else:
+            st.error("❌ Invalid or expired token. Access denied.")
+    st.stop()  # Prevent loading rest of dashboard until authenticated
+
+    log_event("dashboard_login", "Streamlit dashboard accessed", agent="sentiment_agent")
+
+# ====== DASHBOARD SECTION (Only shown when authenticated) ======
 st.title("📊 PortAI Realtime Trading Dashboard")
 placeholder = st.empty()
 
+# Counter to ensure unique keys for each update cycle
+if "update_counter" not in st.session_state:
+    st.session_state.update_counter = 0
+
 while True:
+    # Increment counter to create unique keys
+    st.session_state.update_counter += 1
+    counter = st.session_state.update_counter
+    
     with placeholder.container():
         # 📡 Sentiment Scores Section
         st.subheader("🔮 Real-Time Sentiment Scores")
@@ -63,7 +108,7 @@ while True:
 
         trade_files = list(TRADE_LOG_DIR.glob("*.csv"))
         if not trade_files:
-            st.warning("🚫 No live trade logs found in 'trades/' folder.")
+            st.warning("🚫 No live trade logs found in 'logs/trades/' folder.")
         else:
             latest_log = max(trade_files, key=lambda x: x.stat().st_mtime)
             df = pd.read_csv(latest_log)
