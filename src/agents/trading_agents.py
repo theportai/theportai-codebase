@@ -4,6 +4,10 @@ import pandas as pd  # type: ignore
 import numpy as np  # type: ignore
 from datetime import datetime
 import logging
+from src.utils.enhance_trade_logging import TradeLogger
+from .sentiment_fetcher import get_sentiment_scores
+
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, 
@@ -12,13 +16,20 @@ logger = logging.getLogger('PortAI-Trading')
 
 class PredictionAgent:
     def __init__(self):
-        model_path = "src/ml/prediction_model.pkl"
+        # NEW: Point to latest model path
+        MODEL_DIR = "model_artifacts_20250403_004624"
+        model_path = os.path.join(MODEL_DIR, "xgboost_model.pkl")
+        scaler_path = os.path.join(MODEL_DIR, "feature_scaler.pkl")
+        selector_path = os.path.join(MODEL_DIR, "feature_selector.pkl")
+        
         # Lower threshold to be less conservative
         self.confidence_threshold = 0.6  
         
-        if not os.path.exists(model_path):
-            logger.warning("prediction_model.pkl not found. Implementing enhanced rule-based logic.")
+        if not os.path.exists(model_path) or not os.path.exists(scaler_path) or not os.path.exists(selector_path):
+            logger.warning("Model artifacts not found. Implementing enhanced rule-based logic.")
             self.model = None
+            self.scaler = None
+            self.selector = None
             # Track price history for technical indicators
             self.price_history = []
             self.sma_short_period = 5
@@ -26,7 +37,10 @@ class PredictionAgent:
             self.last_decision = "hold"
             self.consecutive_signals = 0
         else:
+            logger.info(f"Loading model from {model_path}")
             self.model = joblib.load(model_path)
+            self.scaler = joblib.load(scaler_path)
+            self.selector = joblib.load(selector_path)
             
     def calculate_rsi(self, prices, period=14):
         # Calculate RSI indicator
@@ -46,6 +60,46 @@ class PredictionAgent:
         macd = ema_fast - ema_slow
         signal_line = macd.ewm(span=signal, min_periods=signal).mean()
         return macd.iloc[-1], signal_line.iloc[-1]
+
+    def predict(self, features: dict) -> tuple:
+        """
+        Make a prediction from a single feature set.
+        Returns: (predicted_label, confidence_score)
+        """
+        if self.model is None or self.scaler is None or self.selector is None:
+            return 0, 0.0  # Return hold with zero confidence if models not available
+            
+        X = pd.DataFrame([features])
+
+        # Apply feature selection
+        X_selected = X[self.selector]
+
+        # Scale features
+        X_scaled = self.scaler.transform(X_selected)
+
+        # Predict probabilities
+        probs = self.model.predict_proba(X_scaled)[0]
+
+        # Custom thresholds
+        thresholds = {-1: 0.46767005, 0: 0.118604176, 1: 0.40466714}
+
+        # Decide class based on thresholds
+        label_map = {-1: 0, 0: 1, 1: 2}  # xgboost class indices
+        predicted = None
+        confidence = 0.0
+
+        for label, idx in label_map.items():
+            if probs[idx] >= thresholds[label]:
+                predicted = label
+                confidence = probs[idx]
+                break
+
+        # If no label passes threshold, default to hold
+        if predicted is None:
+            predicted = 0
+            confidence = probs[1]
+
+        return predicted, confidence
 
     def analyze(self, features_row):
         decision = "hold"
@@ -104,35 +158,35 @@ class PredictionAgent:
             return decision
 
         try:
-            # Get prediction probabilities if available
-            if hasattr(self.model, 'predict_proba'):
-                proba = self.model.predict_proba(features_row)
-                buy_prob = proba[0][1]
-                sell_prob = proba[0][0]
+            # Use new prediction method
+            features_dict = {}
+            
+            # Convert DataFrame to dict if needed
+            if isinstance(features_row, pd.DataFrame):
+                features_dict = features_row.iloc[0].to_dict()
+            else:
+                features_dict = features_row
                 
-                # If probability of buy is high enough
-                if buy_prob > self.confidence_threshold:
-                    logger.info(f"Buy prediction with confidence: {buy_prob:.2f}")
+            predicted_label, confidence = self.predict(features_dict)
+            
+            if predicted_label == 1:
+                if confidence > self.confidence_threshold:
+                    logger.info(f"Buy prediction with confidence: {confidence:.2f}")
                     return "buy"
-                # If probability of sell is high enough
-                elif sell_prob > self.confidence_threshold:
-                    logger.info(f"Sell prediction with confidence: {sell_prob:.2f}")
+                else:
+                    logger.info(f"Hold prediction (insufficient buy confidence): {confidence:.2f}")
+                    return "hold"
+            elif predicted_label == -1:
+                if confidence > self.confidence_threshold:
+                    logger.info(f"Sell prediction with confidence: {confidence:.2f}")
                     return "sell"
                 else:
-                    logger.info(f"Hold prediction (insufficient confidence). Buy: {buy_prob:.2f}, Sell: {sell_prob:.2f}")
+                    logger.info(f"Hold prediction (insufficient sell confidence): {confidence:.2f}")
                     return "hold"
             else:
-                # Standard prediction
-                prediction = self.model.predict(features_row)[0]
-                if prediction == 1:
-                    logger.info("Buy prediction")
-                    return "buy"
-                elif prediction == -1:
-                    logger.info("Sell prediction")
-                    return "sell"
-                else:
-                    logger.info("Hold prediction")
-                    return "hold"
+                logger.info(f"Hold prediction with confidence: {confidence:.2f}")
+                return "hold"
+                
         except Exception as e:
             logger.error(f"Model prediction error: {str(e)}")
             
@@ -144,91 +198,123 @@ class SentimentAgent:
         self.price_history = []
         self.volume_history = []
         self.max_history = 10
-        # Track the sentiment shift counter - makes agent more responsive
         self.sentiment_shift_counter = 0
-        
+        self.latest_sentiment_score = 0.0
+
+    def update_sentiment_score(self):
+        try:
+            scores = get_sentiment_scores()
+            self.latest_sentiment_score = scores["final_score"]
+        except Exception as e:
+            logger.warning(f"Sentiment fetch failed: {e}")
+            self.latest_sentiment_score = 0  # fallback
+
     def analyze(self, candle):
         try:
-            # Update price and volume history
+            # Call the new method to update sentiment score
+            self.update_sentiment_score()
+
+            # Step 2: Track price & volume history
             self.price_history.append(candle["close"])
             self.volume_history.append(candle["volume"])
-            
-            # Keep history at fixed size
+
             if len(self.price_history) > self.max_history:
                 self.price_history.pop(0)
             if len(self.volume_history) > self.max_history:
                 self.volume_history.pop(0)
-            
-            # Skip non-numeric fields when calculating sum
-            numeric_values = [candle[key] for key in ['open', 'high', 'low', 'close', 'volume'] if key in candle]
-            
-            # Calculate volume ratio safely
-            volume_sum = sum(numeric_values) if numeric_values else 1
-            volume_ratio = candle["volume"] / volume_sum if volume_sum > 0 else 0
-            
-            # Calculate price change
+
+            # Step 3: Calculate metrics
             price_change = candle["close"] - candle["open"]
             price_change_pct = (price_change / candle["open"]) * 100 if candle["open"] > 0 else 0
-            
-            # Calculate volume change if history available
+
+            numeric_values = [candle[key] for key in ['open', 'high', 'low', 'close', 'volume'] if key in candle]
+            volume_sum = sum(numeric_values) if numeric_values else 1
+            volume_ratio = candle["volume"] / volume_sum if volume_sum > 0 else 0
+
             avg_volume = sum(self.volume_history[:-1]) / len(self.volume_history[:-1]) if len(self.volume_history) > 1 else candle["volume"]
             volume_change = (candle["volume"] - avg_volume) / avg_volume if avg_volume > 0 else 0
-            
-            # Enhanced sentiment logic
+
+            # Step 4: Analyze price trends
             confidence = 0.0
-            
-            # Check for trend in price history
             if len(self.price_history) >= 3:
                 recent_prices = self.price_history[-3:]
-                price_trend = sum(1 for i in range(1, len(recent_prices)) if recent_prices[i] > recent_prices[i-1])
-                
-                # If we see consistent price increases
-                if price_trend >= 2:
+                trend = sum(1 for i in range(1, len(recent_prices)) if recent_prices[i] > recent_prices[i-1])
+
+                if trend >= 2:
                     self.sentiment_shift_counter += 1
-                    if self.sentiment_shift_counter >= 2:  # Need consistent positive sentiment
+                    if self.sentiment_shift_counter >= 2:
                         confidence = min(0.7, 0.4 + self.sentiment_shift_counter * 0.1)
-                        logger.info(f"Sentiment: buy (confidence: {confidence:.2f}, trend detected)")
+                        
+                        # Log confidence before sentiment boost
+                        logger.info(f"Confidence before sentiment boost: {confidence:.2f}")
+                        logger.info(f"Sentiment score: {self.latest_sentiment_score:.3f}")
+                        
+                        # Apply sentiment influence (confidence boosting logic)
+                        if self.latest_sentiment_score > 0.3:
+                            confidence += 0.1
+                        elif self.latest_sentiment_score < -0.3:
+                            confidence += 0.1
+                        
+                        confidence = min(confidence, 1.0)  # keep in 0-1 range
+                        
+                        # Log final confidence after sentiment boost
+                        logger.info(f"Final confidence after sentiment boost: {confidence:.2f}")
+                        
+                        logger.info(f"Trend: BUY — confidence {confidence:.2f}")
                         return "buy"
-                # If we see consistent price decreases
-                elif price_trend == 0:
+                elif trend == 0:
                     self.sentiment_shift_counter -= 1
-                    if self.sentiment_shift_counter <= -2:  # Need consistent negative sentiment
+                    if self.sentiment_shift_counter <= -2:
                         confidence = min(0.7, 0.4 + abs(self.sentiment_shift_counter) * 0.1)
-                        logger.info(f"Sentiment: sell (confidence: {confidence:.2f}, trend detected)")
+                        
+                        # Log confidence before sentiment boost
+                        logger.info(f"Confidence before sentiment boost: {confidence:.2f}")
+                        logger.info(f"Sentiment score: {self.latest_sentiment_score:.3f}")
+                        
+                        # Apply sentiment influence (confidence boosting logic)
+                        if self.latest_sentiment_score > 0.3:
+                            confidence += 0.1
+                        elif self.latest_sentiment_score < -0.3:
+                            confidence += 0.1
+                        
+                        confidence = min(confidence, 1.0)  # keep in 0-1 range
+                        
+                        # Log final confidence after sentiment boost
+                        logger.info(f"Final confidence after sentiment boost: {confidence:.2f}")
+                        
+                        logger.info(f"Trend: SELL — confidence {confidence:.2f}")
                         return "sell"
                 else:
-                    # Reset counter if no clear trend
                     self.sentiment_shift_counter = 0
-            
-            # Regular price/volume analysis
-            if price_change > 0:
-                # Positive price movement
-                if volume_ratio > 0.2 and volume_change > 0.1:
-                    confidence = min(0.9, 0.5 + abs(price_change_pct) / 10 + volume_change / 2)
-                    logger.info(f"Sentiment: buy (confidence: {confidence:.2f})")
-                    return "buy"
-                elif volume_ratio > 0.1:
-                    confidence = min(0.7, 0.4 + abs(price_change_pct) / 20)
-                    logger.info(f"Sentiment: buy (confidence: {confidence:.2f})")
-                    return "buy"
-            elif price_change < 0:
-                # Negative price movement
-                if volume_ratio > 0.2 and volume_change > 0.1:
-                    confidence = min(0.9, 0.5 + abs(price_change_pct) / 10 + volume_change / 2)
-                    logger.info(f"Sentiment: sell (confidence: {confidence:.2f})")
-                    return "sell"
-                elif volume_ratio > 0.1:
-                    confidence = min(0.7, 0.4 + abs(price_change_pct) / 20)
-                    logger.info(f"Sentiment: sell (confidence: {confidence:.2f})")
-                    return "sell"
-            
-            logger.info(f"Sentiment: hold (confidence: 0.3)")
-            return "hold"  # Low confidence hold
-            
+
+            # Step 5: Combine both sources (Price + Sentiment)
+            if price_change > 0 and self.latest_sentiment_score > 0.2:
+                confidence = min(0.95, 0.5 + abs(self.latest_sentiment_score) + price_change_pct / 20)
+                
+                # Log confidence for combo sentiment
+                logger.info(f"Confidence before sentiment boost: {confidence:.2f}")
+                logger.info(f"Sentiment score: {self.latest_sentiment_score:.3f}")
+                logger.info(f"Final confidence after sentiment boost: {confidence:.2f}")
+                
+                logger.info(f"Combo Sentiment: BUY — confidence {confidence:.2f}")
+                return "buy"
+            elif price_change < 0 and self.latest_sentiment_score < -0.2:
+                confidence = min(0.95, 0.5 + abs(self.latest_sentiment_score) + abs(price_change_pct) / 20)
+                
+                # Log confidence for combo sentiment
+                logger.info(f"Confidence before sentiment boost: {confidence:.2f}")
+                logger.info(f"Sentiment score: {self.latest_sentiment_score:.3f}")
+                logger.info(f"Final confidence after sentiment boost: {confidence:.2f}")
+                
+                logger.info(f"Combo Sentiment: SELL — confidence {confidence:.2f}")
+                return "sell"
+
+            logger.info(f"Sentiment: HOLD — confidence: 0.3")
+            return "hold"
+
         except Exception as e:
             logger.error(f"SentimentAgent analyze error: {str(e)}")
-            return "hold"  # Safe default with zero confidence
-
+            return "hold"
 
 class MarketAnalysisAgent:
     def __init__(self):
@@ -354,22 +440,52 @@ class MarketAnalysisAgent:
 
 
 class DecisionMaker:
-    def __init__(self, quorum=2):
+    def __init__(self, quorum=2, trade_logger=None):
         self.quorum = quorum
         self.weights = {
-            "market_analysis": 3,  # Increased from 2 to 3 - market analysis gets triple weight
+            "market_analysis": 3,
             "sentiment": 1,
             "prediction": 2
         }
         # Track historical decisions for consistency
         self.last_decision = "hold"
         self.decision_count = 0
-        self.min_confidence_threshold = 0.4  # Reduced from 0.5 to 0.4
-        self.buy_threshold = 0.35  # Lowered threshold for buy action
-        self.sell_threshold = 0.35  # Lowered threshold for sell action
-        self.hold_requirement = 0.7  # Higher threshold required to force a hold
+        self.min_confidence_threshold = 0.4
+        self.buy_threshold = 0.35
+        self.sell_threshold = 0.35
+        self.hold_requirement = 0.7
         
-    def decide(self, signals):
+        # Initialize TradeLogger
+        self.trade_logger = trade_logger or TradeLogger()
+        #self.trade_logger = TradeLogger()
+        
+        # Add trade statistics tracking
+        self.trade_stats = {}
+        self.rolling_window_size = 10
+        
+    def update_rolling_accuracy(self, symbol, correct):
+        """Update rolling accuracy metrics for a symbol"""
+        if symbol not in self.trade_stats:
+            self.trade_stats[symbol] = {
+                "total": 0,
+                "correct": 0,
+                "accuracy": 0.0,
+                "rolling_results": []
+            }
+            
+        # Add current result to rolling window
+        self.trade_stats[symbol]["rolling_results"].append(1 if correct else 0)
+        
+        # Keep only last N results
+        if len(self.trade_stats[symbol]["rolling_results"]) > self.rolling_window_size:
+            self.trade_stats[symbol]["rolling_results"].pop(0)
+            
+        # Calculate rolling accuracy
+        rolling_acc = sum(self.trade_stats[symbol]["rolling_results"]) / len(self.trade_stats[symbol]["rolling_results"])
+        
+        return rolling_acc
+        
+    def decide(self, signals, symbol=None, current_price=None):
         buy_votes = 0
         sell_votes = 0
         hold_votes = 0
@@ -428,6 +544,49 @@ class DecisionMaker:
             self.decision_count += 1
         else:
             self.decision_count = 1
+            
+        # Calculate confidence based on vote distribution
+        final_confidence = 0.0
+        if decision == "buy":
+            final_confidence = buy_percentage
+        elif decision == "sell":
+            final_confidence = sell_percentage
+        else:
+            final_confidence = hold_percentage
+            
+        # Log trade if a decision to buy or sell is made and we have symbol and price info
+        if decision in ["buy", "sell"] and symbol and current_price:
+            # You'll need to implement logic to determine if trade was correct
+            # For now, we'll assume it's correct (True)
+            correct = True
+            
+            # Update trade stats
+            if symbol not in self.trade_stats:
+                self.trade_stats[symbol] = {
+                    "total": 0,
+                    "correct": 0,
+                    "accuracy": 0.0
+                }
+                
+            self.trade_stats[symbol]["total"] += 1
+            if correct:
+                self.trade_stats[symbol]["correct"] += 1
+            self.trade_stats[symbol]["accuracy"] = self.trade_stats[symbol]["correct"] / self.trade_stats[symbol]["total"]
+            
+            # Calculate rolling accuracy
+            rolling_acc = self.update_rolling_accuracy(symbol, correct)
+            
+            # Log the trade
+            self.trade_logger.log_trade(
+                symbol=symbol,
+                action=decision,
+                price=current_price,
+                confidence=final_confidence,
+                correct=correct,
+                total_trades=self.trade_stats[symbol]["total"],
+                accuracy=self.trade_stats[symbol]["accuracy"],
+                rolling_acc=rolling_acc
+            )
             
         self.last_decision = decision
         

@@ -6,13 +6,15 @@ import hvac # type: ignore
 import os
 import requests # type: ignore
 
+from src.utils.enhance_trade_logging import TradeLogger  
+from src.agents.portfolio_manager import PortfolioManager  
+
 # ✅ Agent imports
 from src.agents.trading_agents import MarketAnalysisAgent, SentimentAgent, PredictionAgent, DecisionMaker # type: ignore
 from src.engine.portfolio_report import PortfolioReporter
 
 # ✅ Portfolio engine
 from src.engine.asset_manager import Asset
-from src.engine.trade_logger import TradeLogger
 
 # ✅ ML feature generator
 from src.ml.feature_engineering import generate_features_labels
@@ -40,19 +42,22 @@ prediction_agent = PredictionAgent()
 # Use quorum=1 to get more trading signals
 decision_maker = DecisionMaker(quorum=1)
 
-# ✅ Initialize assets portfolio
+# ✅ Initialize assets portfolio with trade counters
 asset_dict = {
     "btcusdt": Asset("btcusdt", "BTC", "USDT", starting_balance=10000),
     "ethusdt": Asset("ethusdt", "ETH", "USDT", starting_balance=10000),
 }
+
+# Add trade_count attribute to each asset
+for asset in asset_dict.values():
+    asset.trade_count = 0
+    asset.win_count = 0
 
 # ✅ Asset accuracy tracking - using a simple dictionary structure
 asset_accuracy = {
     "btcusdt": {"correct_predictions": 0, "total_predictions": 0},
     "ethusdt": {"correct_predictions": 0, "total_predictions": 0},
 }
-
-
 
 class SafePortfolioReporter:
     def __init__(self, asset_dict, asset_accuracy):
@@ -71,7 +76,7 @@ class SafePortfolioReporter:
                 # Get asset's current value
                 current_value = asset.balance
                 pnl = 0  # Default PnL
-                trades = 0  # Default trades count
+                trades = getattr(asset, 'trade_count', 0)  # Safely get trade count
                 
                 # Calculate accuracy percentage safely
                 accuracy_percentage = 0
@@ -87,6 +92,7 @@ class SafePortfolioReporter:
                 total_balance += current_value
                 total_pnl += pnl
                 total_trades += trades
+                total_wins += getattr(asset, 'win_count', 0)  # Safely get win count
             
             # Print portfolio summary
             print(f"🧑‍💼 Portfolio Summary:")
@@ -97,11 +103,14 @@ class SafePortfolioReporter:
         except Exception as e:
             print(f"⚠️ Error in generate_report: {str(e)}")
 
-
 portfolio_reporter = SafePortfolioReporter(asset_dict, asset_accuracy)
 
+#logger = TradeLogger()
+# ✅ Enhanced logger and portfolio manager
+trade_logger = TradeLogger()
+decision_maker = DecisionMaker(quorum=1, trade_logger=trade_logger)
+portfolio_manager = PortfolioManager(asset_dict, asset_accuracy, "logs/snapshots")
 
-logger = TradeLogger()
 
 BASE_URL = "https://testnet.binance.vision/api/v3"
 
@@ -139,16 +148,10 @@ def enrich_candle(kline):
         "volume": float(kline["v"]),
     }
 
-
-
 async def handle_kline_message(symbol: str, candle: dict):
     global live_buffers, asset_accuracy  # Ensure these are referenced globally
 
     price = candle["close"]
-
-    # Debug what keys are actually in the candle
-    #print(f"DEBUG: Candle keys: {candle.keys()}")
-
 
     # Safe access to timestamp, with fallback
     if "timestamp" in candle:
@@ -163,20 +166,26 @@ async def handle_kline_message(symbol: str, candle: dict):
     # Update buffer for each asset
     live_buffers[symbol].append(candle)
 
-
-
     # ML-based Prediction Signal
     if len(live_buffers[symbol]) > 30:
         try:
             # Generate features from the latest candles (last 50 for safety)
             X_live, _ = generate_features_labels(live_buffers[symbol][-50:])
             last_features = X_live.iloc[-1:]
-            prediction_signal = prediction_agent.analyze(last_features)
+            
+            # Use the updated PredictionAgent.predict() method
+            predicted_label, confidence = prediction_agent.predict(last_features)
+            prediction_signal = predicted_label
+            
+            # Log the model confidence
+            print(f"[PredictionAgent] Signal: {predicted_label}, Confidence: {confidence:.2f}")
         except Exception as e:
             print(f"⚠️ [{symbol}] ML inference failed:", str(e))
             prediction_signal = "hold"
+            confidence = 0.0
     else:
         prediction_signal = "hold"
+        confidence = 0.0
 
     # Run other agent signals (Market, Sentiment)
     market_signal = market_agent.analyze(candle)
@@ -194,10 +203,14 @@ async def handle_kline_message(symbol: str, candle: dict):
 
     print(f"\n🕒 {timestamp_str} | [{symbol.upper()}] PRICE: {price}")
     
-    
-    
+    # Debug logs for confidence levels
     print(f"Signals: {signals} → Final Decision: {final_decision}")
-
+    print(f"Model Confidence: {confidence:.2f}")
+    
+    # Log more detailed decision information
+    if confidence > 0.8:
+        print(f"⚡ HIGH CONFIDENCE SIGNAL: {prediction_signal} with {confidence:.2f}")
+    
     # Accuracy Calculation: Compare Actual vs Predicted
     actual_trend = 1 if market_signal == "buy" else -1 if market_signal == "sell" else 0
     predicted_trend = 1 if prediction_signal == "buy" else -1 if prediction_signal == "sell" else 0
@@ -220,15 +233,59 @@ async def handle_kline_message(symbol: str, candle: dict):
 
     # Execute simulated trade based on decision
     asset = asset_dict[symbol]
+    last_price = getattr(asset, 'last_price', None)
+    
     if final_decision == "buy" and asset.holdings == 0:
         asset.buy(price)
+        # Increment trade count
+        asset.trade_count = getattr(asset, 'trade_count', 0) + 1
+        # Set last price for profit calculation
+        asset.last_price = price
+        # Log the buy decision with confidence
+        print(f"🔵 BUY EXECUTED at ${price} with confidence {confidence:.2f}")
+
+
     elif final_decision == "sell" and asset.holdings > 0:
-        asset.sell(price)
+        # ✅ Ensure entry price is recorded
+        portfolio_manager.update_price(symbol.upper(), price)
+        
+        # ✅ Call sell via PortfolioManager to enable SL/TP logging
+        portfolio_manager.sell(symbol.upper(), price, correct=(price > last_price))
+            # Increment trade count
+        asset.trade_count = getattr(asset, 'trade_count', 0) + 1
+
+
+        # Check if this was a winning trade
+        if last_price and price > last_price:
+            asset.win_count = getattr(asset, 'win_count', 0) + 1
+
+            
+        # Log the sell decision with confidence
+        print(f"🔴 SELL EXECUTED at ${price} with confidence {confidence:.2f}")
     else:
         print("🛑🛑🛑🛑🛑✋✋✋⏳⏳⏳⏸️⏸️⏸️ Hold - No action ⏸️⏸️⏸️⏳⏳⏳✋✋✋🛑🛑🛑🛑🛑")
 
     # Update asset status
     asset.status()
+
+    # Get trade count safely
+    trade_count = getattr(asset, 'trade_count', 0)
+
+    # ✅ Real-time Trade Logging CSV
+    trade_logger.log_trade(
+        symbol=symbol.upper(),
+        action=final_decision,
+        price=price,
+        confidence=confidence,
+        correct=(actual_trend == predicted_trend),
+        total_trades=trade_count,
+        accuracy=accuracy_percentage,
+    )
+
+    # ✅ Save live portfolio snapshot every 5 trades
+    if trade_count > 0 and trade_count % 5 == 0:
+        snapshot_path = portfolio_manager.save_portfolio_snapshot()
+        print(f"📁 Saved snapshot to: {snapshot_path}")
 
     try:
         # Generate the portfolio report
@@ -239,9 +296,8 @@ async def handle_kline_message(symbol: str, candle: dict):
         import traceback
         print(traceback.format_exc())
 
-
-
 async def run_live_simulation():
+    asyncio.create_task(snapshot_task())
     while True:
         try:
             async with websockets.connect(BINANCE_WS_URL) as websocket:
@@ -282,6 +338,17 @@ async def run_live_simulation():
             print(f"⚠️ An error occurred: {str(e)}")
             print(f"Error details: {type(e).__name__}")
             await asyncio.sleep(5)  # Wait 5 seconds before reconnecting
+
+
+async def snapshot_task(interval_sec=300):  # every 5 minutes
+    while True:
+        try:
+            portfolio_manager.save_snapshot()
+            print("📸 Portfolio snapshot saved.")
+        except Exception as e:
+            print(f"⚠️ Error saving snapshot: {str(e)}")
+        await asyncio.sleep(interval_sec)
+
 
 if __name__ == "__main__":
     print("🚀 Starting Live Multi-Asset Simulation on Testnet...")
