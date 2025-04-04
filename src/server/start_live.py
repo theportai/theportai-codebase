@@ -167,7 +167,7 @@ decision_maker.risk_manager.exposure_limits = {
     "ETHUSDT": {"capital": 50, "min_qty": 0.005}
 }
 
-portfolio_manager = PortfolioManager(asset_dict, asset_accuracy, "logs/snapshots")
+portfolio_manager = PortfolioManager(asset_dict, asset_accuracy, "logs/snapshots", live_mode=True)
 
 decision_maker.risk_manager.integrate_with_decision_maker(decision_maker)
 
@@ -295,18 +295,12 @@ async def handle_kline_message(symbol: str, candle: dict):
     if final_decision == "buy" and asset.holdings == 0:
         qty = portfolio_manager.calculate_quantity(symbol, price)
         portfolio_manager.buy(symbol, price, qty)
-        asset.trade_count = getattr(asset, 'trade_count', 0) + 1
-        asset.last_price = price
-        print(f"🔵 BUY EXECUTED at ${price} with confidence {confidence:.2f}")
+        print(f"🔵 BUY EXECUTED at ${price:.2f} | Qty: {qty:.6f} | Confidence: {confidence:.2f}")
 
     elif final_decision == "sell" and asset.holdings > 0:
         portfolio_manager.update_price(symbol.upper(), price)
         portfolio_manager.sell(symbol.upper(), price, correct=(price > last_price))
-        asset.trade_count = getattr(asset, 'trade_count', 0) + 1
-        if last_price and price > last_price:
-            asset.win_count = getattr(asset, 'win_count', 0) + 1
-        qty = getattr(asset, "quantity", 0.01)
-        print(f"🔴 SELL EXECUTED at ${price} with confidence {confidence:.2f}")
+        print(f"🔴 SELL EXECUTED at ${price:.2f} | Confidence: {confidence:.2f}")
         
     else:
         print("🛑🛑🛑🛑🛑✋✋✋⏸️⏸️PortAI is Holding Now  - No action is taken ⏸️⏸️⏸️✋✋✋🛑🛑🛑🛑🛑")
