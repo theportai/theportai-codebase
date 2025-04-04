@@ -16,7 +16,7 @@ from src.core.token_manager import TokenManager
 
 # Initialize TokenManager
 tm = TokenManager()
-live_mode=True
+live_mode = False
 
 
 # Paths
@@ -32,6 +32,15 @@ asset_accuracy = {
 
 # UI Setup
 st.set_page_config(page_title="📈 PortAI Dashboard", layout="wide")
+
+if live_mode:
+    st.markdown(
+        """
+        <div style="background-color:#ffdddd; padding:10px; border-radius:8px; border: 2px solid red;">
+            <h3 style="color:red;">🚨 LIVE MODE ENABLED — Real trades are being executed on Binance Mainnet!</h3>
+        </div>
+        """, unsafe_allow_html=True
+    )
 
 # Session state for user authentication
 if "authenticated" not in st.session_state:

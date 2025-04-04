@@ -36,8 +36,12 @@ class Vault:
             "sentiment_agent",
             "start_live",
             "binance_client",
-            "news_client"
+            "news_client",
+            "trading_agent"
         })
+
+        if os.getenv("ENV") == "dev":
+            self.allowed_callers = self.allowed_callers.union({"trading_agent"})
         
         # Optional in-memory cache with expiration times
         self._cache: Dict[str, Tuple[str, float]] = {}
@@ -231,3 +235,18 @@ class Vault:
             pass
 
 
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--caller", required=True)
+    args = parser.parse_args()
+
+    vault = Vault()
+    try:
+        print(f"🔐 Access granted for caller: {args.caller}")
+        api_key = vault.get_key("BINANCE_API_KEY", caller=args.caller)
+        secret = vault.get_key("BINANCE_SECRET", caller=args.caller)
+        print(f"✅ Retrieved: BINANCE_API_KEY = {api_key[:4]}...****")
+        print(f"✅ Retrieved: BINANCE_SECRET = {secret[:4]}...****")
+    except Exception as e:
+        print(f"❌ Error during vault access: {str(e)}")

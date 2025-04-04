@@ -74,7 +74,24 @@ class PortfolioManager:
             self.assets[symbol].update_price(price)
         self.prices[symbol] = price
 
-    def buy(self, symbol, price):
+    def log_trade(self, symbol, side, price, quantity, confidence=0.0, live=False):
+        log_file = "logs/real_trade_log.csv" if live else "logs/simulated_trade_log.csv"
+        os.makedirs("logs", exist_ok=True)
+
+        with open(log_file, mode="a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                datetime.now().isoformat(),
+                symbol.upper(),
+                side.upper(),
+                f"{price:.2f}",
+                f"{quantity:.4f}",
+                f"{confidence:.4f}",
+                "LIVE" if live else "SIMULATION"
+            ])
+
+
+    def buy(self, symbol, price, quantity, confidence=0.0, live=False):
         quantity = self.calculate_quantity(symbol, price)
         if quantity <= 0:
             print(f"⚠️ Quantity too low for {symbol} at {price}")
@@ -96,24 +113,39 @@ class PortfolioManager:
             print(f"🧪 Simulated BUY: {symbol} {quantity} at {price}")
 
         self.assets[symbol].buy(price, quantity)
-        self.log_trade(symbol, "BUY", price, quantity)
+        self.log_trade(symbol, "BUY", price, quantity, confidence, live)
         self.save_snapshot()
 
 
-    def sell(self, symbol, price):
-        quantity = self.assets[symbol].holding
-        if quantity <= 0:
-            print(f"⚠️ No holding to SELL for {symbol}")
+    def sell(self, symbol, price, quantity, confidence=0.0, live=False, correct=None):
+        symbol = symbol.lower()
+        asset = self.assets[symbol]
+
+        if asset.holdings <= 0:
+            print(f"⚠️ No holdings to SELL for {symbol.upper()}")
             return
+
+        # Optional model correctness logging
+        if correct is not None:
+            if correct:
+                print(f"✅ Model CORRECT on SELL for {symbol.upper()}")
+            else:
+                print(f"❌ Model INCORRECT on SELL for {symbol.upper()}")
 
         if self.live_mode:
             self.execute_real_order(symbol, "SELL", quantity)
         else:
-            print(f"🧪 Simulated SELL: {symbol} {quantity} at {price}")
+            print(f"🧪 Simulated SELL: {symbol} {quantity:.6f} at {price}")
 
-        self.assets[symbol].sell(price, quantity)
-        self.log_trade(symbol, "SELL", price, quantity)
+        # Execute and log
+        asset.sell(price, quantity)
+        
+        if hasattr(self, "log_trade"):
+            self.log_trade(symbol, "SELL", price, quantity, confidence, live)
+
         self.save_snapshot()
+
+
 
     def get_portfolio_value(self, symbol):
         asset = self.assets[symbol]

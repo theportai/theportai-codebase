@@ -65,26 +65,38 @@ def get_binance_balances():
     params["signature"] = generate_signature(params, API_SECRET)
     headers = {"X-MBX-APIKEY": API_KEY}
 
-    balances = data.get("balances", [])
-    tracked_assets = {"BTC", "ETH", "USDT"}
-    nonzero_assets = {b['asset']: float(b['free']) for b in balances if b['asset'] in tracked_assets}
-
-    if not any(amount > 0 for amount in nonzero_assets.values()):
-        print("⚠️ No tradeable balance found!")
-        print("💡 Please deposit USDT, BTC or ETH in your Spot wallet before trading.")
-    else:
-        for asset, amount in nonzero_assets.items():
-            print(f"💰 {asset}: {amount}")
-
     try:
         response = requests.get(BASE_URL + "/api/v3/account", headers=headers, params=params, timeout=10)
-        data = response.json()
 
         if response.status_code == 200:
-            return data.get("balances", [])
+            data = response.json()
+            balances = data.get("balances", [])
+
+            tracked_assets = {"BTC", "ETH", "USDT"}
+            balance_dict = {
+                b["asset"]: float(b["free"])
+                for b in balances
+                if b["asset"] in tracked_assets and float(b["free"]) > 0
+            }
+
+            if not balance_dict:
+                print("⚠️ No tradeable balance found!")
+                print("💡 Please deposit USDT, BTC or ETH in your Spot wallet before trading.")
+            else:
+                print("💰 Available Balances:")
+                for asset, amount in balance_dict.items():
+                    print(f"   {asset}: {amount}")
+
+            return balance_dict  # ✅ Return dict instead of raw list
+
         else:
-            print(f"❌ Failed to fetch balances | Response: {data}")
-            return []
+            print(f"❌ Failed to fetch balances | Status Code: {response.status_code} | Response: {response.text}")
+            return {}
+
+    except Exception as e:
+        print(f"❌ Error fetching Binance balances: {str(e)}")
+        return {}
+
     except Exception as e:
         print(f"⚠️ Network error during balance fetch: {str(e)}")
         return []
