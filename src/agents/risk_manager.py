@@ -3,6 +3,7 @@ import pandas as pd # type: ignore
 import numpy as np # type: ignore
 from datetime import datetime, timedelta
 
+
 # Set up logging
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -14,10 +15,19 @@ class RiskManager:
         Initialize the risk manager with exposure limits per symbol.
         
         Args:
-            exposure_limits (dict): Dictionary mapping symbols to their maximum exposure as decimal.
-                                   e.g. {"BTCUSDT": 0.001, "ETHUSDT": 0.01}
+            exposure_limits (dict): Dictionary mapping symbols to their configuration.
+                                   Format: {"BTCUSDT": {"capital": 50, "min_qty": 0.0005}, ...}
         """
-        self.exposure_limits = exposure_limits or {}
+        
+        if exposure_limits is None:
+            self.exposure_limits = {
+                "BTCUSDT": {"capital": 50, "min_qty": 0.0005},
+                "ETHUSDT": {"capital": 50, "min_qty": 0.005}
+            }
+        else:
+            self.exposure_limits = exposure_limits
+
+
         self.current_exposures = {}
         self.trade_history = []
         self.max_daily_loss = 0.02  # 2% portfolio value limit for daily losses
@@ -50,13 +60,24 @@ class RiskManager:
             else:
                 logger.warning(f"Trading paused due to risk limits: Cooldown until {self.cooldown_end_time}")
                 return False
-                
+        
         # If no limit is set for this symbol, use a conservative default
         if symbol not in self.exposure_limits:
-            default_limit = 0.005  # 0.5% default if not specified
-            logger.warning(f"No exposure limit set for {symbol}, using default {default_limit}")
-            self.exposure_limits[symbol] = default_limit
-            
+            default_config = {"capital": 5, "min_qty": 0.001}  # Default conservative config
+            logger.warning(f"No exposure limit set for {symbol}, using default {default_config}")
+            self.exposure_limits[symbol] = default_config
+        
+        symbol_config = self.exposure_limits[symbol]
+        
+        # Get capital allocation limit from config
+        capital_limit = symbol_config.get("capital", 50)  # Default to 50 if not specified
+        
+        # Check minimum trade quantity
+        min_qty = symbol_config.get("min_qty", 0.001)  # Default min quantity
+        if trade_amount < min_qty:
+            logger.warning(f"Trade rejected: {symbol} quantity {trade_amount} below minimum {min_qty}")
+            return False
+                
         # Current exposure for this symbol
         current = self.current_exposures.get(symbol, 0.0)
         
@@ -65,15 +86,16 @@ class RiskManager:
         
         # If portfolio value is provided, check against percentage limit
         if portfolio_value:
+            # Convert capital limit from fixed amount to percentage of portfolio
+            capital_limit_pct = capital_limit / portfolio_value
             exposure_ratio = new_exposure / portfolio_value
-            limit = self.exposure_limits[symbol]
             
-            if exposure_ratio > limit:
-                logger.warning(f"Trade rejected: {symbol} exposure would be {exposure_ratio:.4f}, exceeding limit {limit}")
+            if exposure_ratio > capital_limit_pct:
+                logger.warning(f"Trade rejected: {symbol} exposure would be {exposure_ratio:.4f}, exceeding limit {capital_limit_pct:.4f}")
                 return False
-        # Otherwise check against absolute value
-        elif new_exposure > self.exposure_limits[symbol]:
-            logger.warning(f"Trade rejected: {symbol} exposure would be {new_exposure}, exceeding limit {self.exposure_limits[symbol]}")
+        # Otherwise check against absolute value of capital limit
+        elif new_exposure > capital_limit:
+            logger.warning(f"Trade rejected: {symbol} exposure would be {new_exposure}, exceeding capital limit {capital_limit}")
             return False
             
         logger.info(f"Trade approved: {symbol} exposure will be {new_exposure}")

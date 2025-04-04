@@ -10,28 +10,34 @@ class Asset:
         self.winning_trades = 0
         self.trade_history = []  # Added trade history list to store each trade record
 
-    def buy(self, price):
-        """Buy the asset at the given price."""
+    def buy(self, price, quantity):
+        """Buy a specific quantity of the asset at the given price."""
+        cost = price * quantity
+        if cost > self.balance:
+            print(f"❌ Not enough balance to buy {quantity} {self.symbol.upper()} at {price}")
+            return
         self.last_price = price
-        self.holdings = self.balance / price
-        self.balance = 0  # all balance is used for buying
+        self.holdings += quantity
+        self.balance -= cost
         self.total_trades += 1
-        self.trade_history.append({"type": "buy", "price": price})  # Store the trade record
-        print(f"Bought {self.symbol.upper()} at {price}, total trades: {self.total_trades}")
+        self.trade_history.append({"type": "buy", "price": price, "qty": quantity})
+        print(f"✅ Bought {quantity:.4f} {self.symbol.upper()} at ${price} | New Holdings: {self.holdings:.4f}")
 
-    def sell(self, price):
-        """Sell the asset at the given price."""
-        self.balance = self.holdings * price  # sell all holdings
-        self.holdings = 0
+    def sell(self, price, quantity):
+        """Sell a specific quantity of the asset at the given price."""
+        if quantity > self.holdings:
+            print(f"❌ Not enough holdings to sell {quantity} {self.symbol.upper()}")
+            return
+        self.balance += price * quantity
+        self.holdings -= quantity
         self.total_trades += 1
-        self.trade_history.append({"type": "sell", "price": price})  # Store the trade record
-
-        # Check if trade was profitable
+        self.trade_history.append({"type": "sell", "price": price, "qty": quantity})
+        
         if price > self.last_price:
             self.winning_trades += 1
-            print(f"Sold {self.symbol.upper()} at {price} (Win), total wins: {self.winning_trades}")
+            print(f"✅ Sold {quantity:.4f} {self.symbol.upper()} at ${price} (Win)")
         else:
-            print(f"Sold {self.symbol.upper()} at {price} (Loss)")
+            print(f"⚠️ Sold {quantity:.4f} {self.symbol.upper()} at ${price} (Loss)")
 
     def status(self):
         """Display the asset's current status."""

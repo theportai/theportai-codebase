@@ -2,17 +2,26 @@ import os
 import csv
 from datetime import datetime
 from src.utils.enhance_trade_logging import TradeLogger
+from src.core.vault import Vault
+from src.utils.binance_executor import execute_order
+from src.utils.binance_executor import get_binance_balances
+
+
+vault = Vault()
 
 
 class PortfolioManager:
-    def __init__(self, asset_dict, accuracy_dict, snapshot_dir="logs/snapshots"):
+    def __init__(self, asset_dict, accuracy_dict, snapshot_dir="logs/snapshots", binance_api_key=None, binance_secret=None, live_mode=True):
+        self.live_mode = live_mode
         self.assets = asset_dict  # Dictionary of Asset objects
         self.accuracy = accuracy_dict  # Tracks correct/total predictions per asset
         self.snapshot_dir = snapshot_dir
         os.makedirs(snapshot_dir, exist_ok=True)
 
+        self.BINANCE_API_KEY = vault.get_key("BINANCE_API_KEY", caller="start_live")
+        self.BINANCE_SECRET = vault.get_key("BINANCE_SECRET", caller="start_live")
+        
         self.prices = {}
-
         self.trade_logger = TradeLogger()
 
         self.entry_price = {
@@ -25,6 +34,26 @@ class PortfolioManager:
             writer = csv.writer(f)
             writer.writerow(["timestamp", "symbol", "exit_type", "entry_price", "exit_price", "pnl"])
 
+    def execute_real_order(self, symbol, side, qty, price):
+        print(f"🚀 Real Trade Triggered: {symbol} {side} {qty} @ {price}")
+        result = execute_order(symbol, side, qty)
+
+        if result:
+            order_id = result.get("orderId")
+            self.assets[symbol].last_trade_id = order_id
+            print(f"✅ Order Executed | ID: {order_id}")
+        else:
+            print(f"❌ Trade execution failed for {symbol} {side}")
+
+    def calculate_quantity(self, symbol, price, capital_fraction=1.0):
+        """
+        Calculates how much to buy based on available balance and price.
+        `capital_fraction=1.0` uses full balance, set to 0.5 for 50% usage.
+        """
+        asset = self.assets[symbol]
+        available_capital = asset.balance * capital_fraction
+        return round(available_capital / price, 6)  
+        
     def check_sl_tp(self, symbol, price, sl_pct=0.01, tp_pct=0.02):
         """
         Check whether Stop Loss or Take Profit was hit.
@@ -43,41 +72,80 @@ class PortfolioManager:
     def update_price(self, symbol, price):
         if symbol in self.assets:
             self.assets[symbol].update_price(price)
+        self.prices[symbol] = price
 
-    def buy(self, symbol, price):
-        quantity = self.balances[symbol] / price
-        self.holdings[symbol] += quantity
-        self.balances[symbol] = 0.0
-        self.trades[symbol] += 1
-        self.entry_price[symbol] = price
+    def log_trade(self, symbol, side, price, quantity, confidence=0.0, live=False):
+        log_file = "logs/real_trade_log.csv" if live else "logs/simulated_trade_log.csv"
+        os.makedirs("logs", exist_ok=True)
 
-    def sell(self, symbol, price, correct=True):
-        symbol = symbol.lower()
-        if symbol not in self.assets:
-            print(f"⚠️ Asset {symbol} not found in portfolio.")
+        with open(log_file, mode="a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                datetime.now().isoformat(),
+                symbol.upper(),
+                side.upper(),
+                f"{price:.2f}",
+                f"{quantity:.4f}",
+                f"{confidence:.4f}",
+                "LIVE" if live else "SIMULATION"
+            ])
+
+
+    def buy(self, symbol, price, quantity, confidence=0.0, live=False):
+        quantity = self.calculate_quantity(symbol, price)
+        if quantity <= 0:
+            print(f"⚠️ Quantity too low for {symbol} at {price}")
             return
 
+        # ✅ Real-time Binance Balance Guard
+        if self.live_mode:
+            balances = get_binance_balances()
+            asset_code = symbol.replace("USDT", "")  # Extract BTC/ETH
+
+            for bal in balances:
+                if bal["asset"] == asset_code:
+                    if float(bal["free"]) == 0:
+                        print(f"⛔ No {asset_code} balance available – skipping real BUY for {symbol}")
+                        return
+
+            self.execute_real_order(symbol, "BUY", quantity)
+        else:
+            print(f"🧪 Simulated BUY: {symbol} {quantity} at {price}")
+
+        self.assets[symbol].buy(price, quantity)
+        self.log_trade(symbol, "BUY", price, quantity, confidence, live)
+        self.save_snapshot()
+
+
+    def sell(self, symbol, price, quantity, confidence=0.0, live=False, correct=None):
+        symbol = symbol.lower()
         asset = self.assets[symbol]
-        proceeds = asset.holdings * price
-        asset.balance += proceeds
-        asset.holdings = 0.0
-        asset.trade_count = getattr(asset, 'trade_count', 0) + 1
 
-        if correct:
-            asset.win_count = getattr(asset, 'win_count', 0) + 1
+        if asset.holdings <= 0:
+            print(f"⚠️ No holdings to SELL for {symbol.upper()}")
+            return
 
-        # ✅ SL/TP Event Logging
-        entry_price = getattr(asset, 'last_price', None)
-        if entry_price is not None:
-            exit_type = "tp" if price > entry_price else "sl"
-            pnl = proceeds - 10000  # assuming initial investment per asset
-            self.trade_logger.log_sl_tp_event(
-                symbol=symbol,
-                exit_type=exit_type,
-                entry_price=entry_price,
-                exit_price=price,
-                pnl=pnl
-            )
+        # Optional model correctness logging
+        if correct is not None:
+            if correct:
+                print(f"✅ Model CORRECT on SELL for {symbol.upper()}")
+            else:
+                print(f"❌ Model INCORRECT on SELL for {symbol.upper()}")
+
+        if self.live_mode:
+            self.execute_real_order(symbol, "SELL", quantity)
+        else:
+            print(f"🧪 Simulated SELL: {symbol} {quantity:.6f} at {price}")
+
+        # Execute and log
+        asset.sell(price, quantity)
+        
+        if hasattr(self, "log_trade"):
+            self.log_trade(symbol, "SELL", price, quantity, confidence, live)
+
+        self.save_snapshot()
+
+
 
     def get_portfolio_value(self, symbol):
         asset = self.assets[symbol]
@@ -125,7 +193,6 @@ class PortfolioManager:
                 writer.writerow(["timestamp", "symbol", "balance", "holdings", "pnl", "trades", "accuracy"])
 
             for symbol, asset in self.assets.items():
-                #value = asset.balance + (asset.holdings * asset.price)
                 price = self.prices.get(symbol, 0.0)
                 value = asset.balance + (asset.holdings * price)
                 pnl = value - 10000

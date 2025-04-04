@@ -16,6 +16,8 @@ from src.core.token_manager import TokenManager
 
 # Initialize TokenManager
 tm = TokenManager()
+live_mode = False
+
 
 # Paths
 TRADE_LOG_DIR = Path("logs/trades")
@@ -30,6 +32,15 @@ asset_accuracy = {
 
 # UI Setup
 st.set_page_config(page_title="📈 PortAI Dashboard", layout="wide")
+
+if live_mode:
+    st.markdown(
+        """
+        <div style="background-color:#ffdddd; padding:10px; border-radius:8px; border: 2px solid red;">
+            <h3 style="color:red;">🚨 LIVE MODE ENABLED — Real trades are being executed on Binance Mainnet!</h3>
+        </div>
+        """, unsafe_allow_html=True
+    )
 
 # Session state for user authentication
 if "authenticated" not in st.session_state:
@@ -61,6 +72,9 @@ if not st.session_state.authenticated:
 
 # ====== DASHBOARD SECTION (Only shown when authenticated) ======
 st.title("📊 PortAI Realtime Trading Dashboard")
+if live_mode:
+    st.markdown("🔴 **LIVE MODE ENABLED** — Real trades are active!", unsafe_allow_html=True)
+
 placeholder = st.empty()
 
 # Counter to ensure unique keys for each update cycle

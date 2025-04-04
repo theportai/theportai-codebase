@@ -470,9 +470,9 @@ class DecisionMaker:
 
         # Initialize risk manager
         self.risk_manager = RiskManager({
-            "BTCUSDT": 0.001,  # 0.1% of portfolio 
-            "ETHUSDT": 0.01,   # 1% of portfolio
-            "SOLUSDT": 0.005   # 0.5% of portfolio
+            "BTCUSDT": {"capital": 50, "min_qty": 0.0005},
+            "ETHUSDT": {"capital": 50, "min_qty": 0.005},
+            "SOLUSDT": {"capital": 20, "min_qty": 0.2}
         })
             
     def update_rolling_accuracy(self, symbol, correct):
@@ -591,7 +591,8 @@ class DecisionMaker:
                 self.trade_stats[symbol] = {
                     "total": 0,
                     "correct": 0,
-                    "accuracy": 0.0
+                    "accuracy": 0.0,
+                    "rolling_results": []
                 }
                 
             self.trade_stats[symbol]["total"] += 1

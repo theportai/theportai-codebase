@@ -1,9 +1,10 @@
 import asyncio
 import json
 import websockets  # type: ignore
-from datetime import datetime
+from datetime import datetime, timedelta
 import hvac # type: ignore
 import os
+import csv
 import requests # type: ignore
 from src.utils.enhance_trade_logging import TradeLogger  
 from src.agents.portfolio_manager import PortfolioManager  
@@ -18,10 +19,15 @@ from fastapi import FastAPI, HTTPException # type: ignore
 from src.core.token_manager import TokenManager
 from pydantic import BaseModel # type: ignore
 from src.utils.audit_logger import log_event
+from src.utils.binance_executor import get_binance_balances
+import uvicorn # type: ignore
+
 
 
 app = FastAPI()
 token_manager = TokenManager()
+
+live_mode = False
 
 
 @app.get("/health")
@@ -45,7 +51,7 @@ def generate_token(request: TokenRequest):
         token = result
         # Create a default expiration time if needed
         expires_at = datetime.now()
-           
+
     log_event("token_generated", f"Token generated for {request.agent_name}", agent=request.agent_name)
     
     return {
@@ -73,7 +79,8 @@ BINANCE_STREAMS = [
     "btcusdt@kline_1m",
     "ethusdt@kline_1m",
 ]
-BINANCE_WS_URL = "wss://testnet.binance.vision/stream?streams=btcusdt@kline_1m/ethusdt@kline_1m"
+
+BINANCE_WS_URL = "wss://stream.binance.com:9443/stream?streams=btcusdt@kline_1m/ethusdt@kline_1m"
 
 live_buffers = {
     "btcusdt": [],
@@ -84,19 +91,18 @@ live_buffers = {
 market_agent = MarketAnalysisAgent()
 sentiment_agent = SentimentAgent()
 prediction_agent = PredictionAgent()
-# Use quorum=1 to get more trading signals
-#decision_maker = DecisionMaker(quorum=1)
 
-# ✅ Initialize assets portfolio with trade counters
+
 asset_dict = {
     "btcusdt": Asset("btcusdt", "BTC", "USDT", starting_balance=10000),
     "ethusdt": Asset("ethusdt", "ETH", "USDT", starting_balance=10000),
 }
 
-# Add trade_count attribute to each asset
-for asset in asset_dict.values():
+
+for symbol, asset in asset_dict.items():
     asset.trade_count = 0
     asset.win_count = 0
+
 
 # ✅ Asset accuracy tracking - using a simple dictionary structure
 asset_accuracy = {
@@ -150,15 +156,26 @@ class SafePortfolioReporter:
 
 portfolio_reporter = SafePortfolioReporter(asset_dict, asset_accuracy)
 
-#logger = TradeLogger()
-# ✅ Enhanced logger and portfolio manager
+exposure = {
+    "BTCUSDT": 0.001,  # ~7-10 USD
+    "ETHUSDT": 0.01   # ~15-20 USD 
+}
+
+
 trade_logger = TradeLogger()
 decision_maker = DecisionMaker(quorum=1, trade_logger=trade_logger)
-portfolio_manager = PortfolioManager(asset_dict, asset_accuracy, "logs/snapshots")
+
+
+decision_maker.risk_manager.exposure_limits = {
+    "BTCUSDT": {"capital": 50, "min_qty": 0.0005},
+    "ETHUSDT": {"capital": 50, "min_qty": 0.005}
+}
+
+portfolio_manager = PortfolioManager(asset_dict, asset_accuracy, "logs/snapshots", live_mode=False)
 
 decision_maker.risk_manager.integrate_with_decision_maker(decision_maker)
 
-BASE_URL = "https://testnet.binance.vision/api/v3"
+BASE_URL = "https://api.binance.com/api/v3"
 
 def place_order(symbol, side, quantity, price):
     url = f"{BASE_URL}/order"
@@ -191,8 +208,15 @@ def enrich_candle(kline):
         "volume": float(kline["v"]),
     }
 
+
+
 async def handle_kline_message(symbol: str, candle: dict):
-    global live_buffers, asset_accuracy  # Ensure these are referenced globally
+    global live_buffers, asset_accuracy  
+
+    # ⏸️ This will Skip trading if in cooldown
+    if decision_maker.risk_manager.in_cooldown:
+        print(f"⏸️ Cooldown active until {decision_maker.risk_manager.cooldown_end_time}. Holding.")
+        return
 
     price = candle["close"]
 
@@ -278,37 +302,51 @@ async def handle_kline_message(symbol: str, candle: dict):
     asset = asset_dict[symbol]
     last_price = getattr(asset, 'last_price', None)
     
-    if final_decision == "buy" and asset.holdings == 0:
-        asset.buy(price)
-        # Increment trade count
-        asset.trade_count = getattr(asset, 'trade_count', 0) + 1
-        # Set last price for profit calculation
-        asset.last_price = price
-        # Log the buy decision with confidence
-        print(f"🔵 BUY EXECUTED at ${price} with confidence {confidence:.2f}")
 
+    if final_decision == "buy" and asset.holdings == 0:
+        qty = portfolio_manager.calculate_quantity(symbol, price)
+        if live_mode:
+            portfolio_manager.buy(symbol, price, qty)
+            print(f"🔵 BUY EXECUTED at ${price:.2f} | Qty: {qty:.6f} | Confidence: {confidence:.2f}")
+        else:
+            portfolio_manager.buy(symbol, price, qty)
+            print(f"[SIMULATION] Would BUY {symbol.upper()} at ${price:.2f} | Qty: {qty:.6f} | Confidence: {confidence:.2f}")
 
     elif final_decision == "sell" and asset.holdings > 0:
-        # ✅ Ensure entry price is recorded
+        sl_tp_hit = portfolio_manager.check_sl_tp(symbol.upper(), price)
+
+        if sl_tp_hit:
+            print(f"🚨 SL/TP Triggered for {symbol.upper()} – {sl_tp_hit.upper()}")
+            portfolio_manager.risk_manager.in_cooldown = True
+            portfolio_manager.risk_manager.cooldown_end_time = datetime.now() + timedelta(hours=2)
+
+            # Log SL/TP event
+            with open(portfolio_manager.sl_tp_log_path, "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    symbol.upper(),
+                    sl_tp_hit.upper(),
+                    portfolio_manager.entry_price.get(symbol.upper()),
+                    price,
+                    round(price - portfolio_manager.entry_price.get(symbol.upper(), 0), 4)
+                ])
+
         portfolio_manager.update_price(symbol.upper(), price)
+
+        qty = portfolio_manager.calculate_quantity(symbol, price)
+        if live_mode:
+            portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price))
+            print(f"🔴 SELL EXECUTED at ${price:.2f} | Confidence: {confidence:.2f}")
+        else:
+            portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price))
+            print(f"[SIMULATION] Would SELL {symbol.upper()} at ${price:.2f} | Confidence: {confidence:.2f}")
         
-        # ✅ Call sell via PortfolioManager to enable SL/TP logging
-        portfolio_manager.sell(symbol.upper(), price, correct=(price > last_price))
-            # Increment trade count
-        asset.trade_count = getattr(asset, 'trade_count', 0) + 1
-
-
-        # Check if this was a winning trade
-        if last_price and price > last_price:
-            asset.win_count = getattr(asset, 'win_count', 0) + 1
-
-
-        # Log the sell decision with confidence
-        print(f"🔴 SELL EXECUTED at ${price} with confidence {confidence:.2f}")
     else:
-        print("🛑🛑🛑🛑🛑✋✋✋⏳⏳⏳⏸️⏸️⏸️ Hold - No action ⏸️⏸️⏸️⏳⏳⏳✋✋✋🛑🛑🛑🛑🛑")
+        print("🛑🛑🛑🛑🛑✋✋✋⏸️⏸️PortAI is Holding Now  - No action is taken ⏸️⏸️⏸️✋✋✋🛑🛑🛑🛑🛑")
 
-    # Update asset status
+
+
     asset.status()
 
     # Get trade count safely
@@ -339,48 +377,77 @@ async def handle_kline_message(symbol: str, candle: dict):
         import traceback
         print(traceback.format_exc())
 
+
+if live_mode:
+    balances = get_binance_balances()
+    usdt = float(balances.get("USDT", 0))
+
+    if usdt == 0:
+        print("⚠️ No tradeable balance in USDT. Please fund your Binance Spot Wallet.")
+        exit()
+
+
 async def run_live_simulation():
     asyncio.create_task(snapshot_task())
-    while True:
-        try:
-            async with websockets.connect(BINANCE_WS_URL) as websocket:
-                print("✅ Connected to Binance Testnet WebSocket...")
-                async for message in websocket:
-                    try:
-                        data = json.loads(message)
-                        
-                        # Extract the stream and kline data safely
-                        if "stream" not in data or "data" not in data or "k" not in data["data"]:
-                            print(f"⚠️ Unexpected message format: {data}")
-                            continue
-                            
-                        stream = data["stream"]
-                        kline = data["data"]["k"]
-                        
-                        if kline["x"]:  # candle closed
-                            symbol = stream.split("@")[0]
-                            try:
-                                #print("DEBUG: About to enrich candle")
-                                candle = enrich_candle(kline)
-                                #print("DEBUG: Candle enriched successfully")
-                                await handle_kline_message(symbol, candle)
-                            except Exception as e:
-                                print(f"⚠️ Error in candle processing: {str(e)}")
-                                import traceback
-                                print(traceback.format_exc())  # This will print the full stack trace
-                    except Exception as e:
-                        print(f"⚠️ Error processing message: {str(e)}")
-                        import traceback
-                        print(traceback.format_exc())  # This will print the full stack trace
-                        
-        except websockets.exceptions.ConnectionClosedError as e:
-            print(f"⚠️ WebSocket connection closed unexpectedly: {str(e)}")
-            print("Reconnecting in 5 seconds...")
-            await asyncio.sleep(5)  # Wait 5 seconds before reconnecting
-        except Exception as e:
-            print(f"⚠️ An error occurred: {str(e)}")
-            print(f"Error details: {type(e).__name__}")
-            await asyncio.sleep(5)  # Wait 5 seconds before reconnecting
+
+    try:
+        while True:
+            try:
+                async with websockets.connect(BINANCE_WS_URL) as websocket:
+                    print("✅ Connect to Binance Live Multi-Asset Mainnet...")
+                    async for message in websocket:
+                        try:
+                            data = json.loads(message)
+
+                            # Extract the stream and kline data safely
+                            if "stream" not in data or "data" not in data or "k" not in data["data"]:
+                                print(f"⚠️ Unexpected message format: {data}")
+                                continue
+
+                            stream = data["stream"]
+                            kline = data["data"]["k"]
+
+                            if kline["x"]:  # candle closed
+                                symbol = stream.split("@")[0]
+                                try:
+                                    candle = enrich_candle(kline)
+                                    await handle_kline_message(symbol, candle)
+                                except Exception as e:
+                                    print(f"⚠️ Error in candle processing: {str(e)}")
+                                    import traceback
+                                    print(traceback.format_exc())
+
+                        except Exception as e:
+                            print(f"⚠️ Error processing message: {str(e)}")
+                            import traceback
+                            print(traceback.format_exc())
+
+            except websockets.exceptions.ConnectionClosedError as e:
+                print(f"⚠️ WebSocket connection closed unexpectedly: {str(e)}")
+                print("Reconnecting in 5 seconds...")
+                await asyncio.sleep(5)
+
+            except Exception as e:
+                print(f"⚠️ An error occurred: {str(e)}")
+                print(f"Error details: {type(e).__name__}")
+                await asyncio.sleep(5)
+
+    finally:
+        # ✅ Export Simulation Summary if live_mode is False
+        if not live_mode:
+            try:
+                sim_summary_path = f"logs/sim_results_{datetime.now().strftime('%Y%m%d')}.csv"
+                with open(sim_summary_path, "w") as f:
+                    f.write("Symbol,Final Balance,Trades,Win Rate\n")
+                    for symbol, asset in asset_dict.items():
+                        win_rate = (
+                            asset.win_count / asset.trade_count * 100
+                            if getattr(asset, "trade_count", 0) > 0 else 0
+                        )
+                        f.write(f"{symbol},{asset.balance:.2f},{asset.trade_count},{win_rate:.2f}%\n")
+                print(f"📄 Simulation results exported to: {sim_summary_path}")
+            except Exception as e:
+                print(f"⚠️ Failed to export simulation summary: {str(e)}")
 
 
 async def snapshot_task(interval_sec=300):  # every 5 minutes
@@ -394,5 +461,8 @@ async def snapshot_task(interval_sec=300):  # every 5 minutes
 
 
 if __name__ == "__main__":
-    print("🚀 Starting Live Multi-Asset Simulation on Testnet...")
+    if live_mode:
+        print("🔴 PortAI is running in LIVE MODE – Real trades will be executed on Binance Mainnet!")
+    else:
+        print("🟡 PortAI is running in SIMULATION mode – No real trades will occur.")
     asyncio.run(run_live_simulation())
