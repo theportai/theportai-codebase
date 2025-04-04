@@ -23,6 +23,8 @@ from src.utils.audit_logger import log_event
 app = FastAPI()
 token_manager = TokenManager()
 
+live_mode = True
+
 
 @app.get("/health")
 async def health_check():
@@ -45,7 +47,7 @@ def generate_token(request: TokenRequest):
         token = result
         # Create a default expiration time if needed
         expires_at = datetime.now()
-           
+
     log_event("token_generated", f"Token generated for {request.agent_name}", agent=request.agent_name)
     
     return {
@@ -73,7 +75,8 @@ BINANCE_STREAMS = [
     "btcusdt@kline_1m",
     "ethusdt@kline_1m",
 ]
-BINANCE_WS_URL = "wss://testnet.binance.vision/stream?streams=btcusdt@kline_1m/ethusdt@kline_1m"
+
+BINANCE_WS_URL = "wss://stream.binance.com:9443/stream?streams=btcusdt@kline_1m/ethusdt@kline_1m"
 
 live_buffers = {
     "btcusdt": [],
@@ -84,19 +87,18 @@ live_buffers = {
 market_agent = MarketAnalysisAgent()
 sentiment_agent = SentimentAgent()
 prediction_agent = PredictionAgent()
-# Use quorum=1 to get more trading signals
-#decision_maker = DecisionMaker(quorum=1)
 
-# ✅ Initialize assets portfolio with trade counters
+
 asset_dict = {
     "btcusdt": Asset("btcusdt", "BTC", "USDT", starting_balance=10000),
     "ethusdt": Asset("ethusdt", "ETH", "USDT", starting_balance=10000),
 }
 
-# Add trade_count attribute to each asset
-for asset in asset_dict.values():
+
+for symbol, asset in asset_dict.items():
     asset.trade_count = 0
     asset.win_count = 0
+
 
 # ✅ Asset accuracy tracking - using a simple dictionary structure
 asset_accuracy = {
@@ -150,15 +152,26 @@ class SafePortfolioReporter:
 
 portfolio_reporter = SafePortfolioReporter(asset_dict, asset_accuracy)
 
-#logger = TradeLogger()
-# ✅ Enhanced logger and portfolio manager
+exposure = {
+    "BTCUSDT": 0.001,  # ~7-10 USD
+    "ETHUSDT": 0.01   # ~15-20 USD 
+}
+
+
 trade_logger = TradeLogger()
 decision_maker = DecisionMaker(quorum=1, trade_logger=trade_logger)
+
+
+decision_maker.risk_manager.exposure_limits = {
+    "BTCUSDT": {"capital": 50, "min_qty": 0.0005},
+    "ETHUSDT": {"capital": 50, "min_qty": 0.005}
+}
+
 portfolio_manager = PortfolioManager(asset_dict, asset_accuracy, "logs/snapshots")
 
 decision_maker.risk_manager.integrate_with_decision_maker(decision_maker)
 
-BASE_URL = "https://testnet.binance.vision/api/v3"
+BASE_URL = "https://api.binance.com/api/v3"
 
 def place_order(symbol, side, quantity, price):
     url = f"{BASE_URL}/order"
@@ -192,7 +205,7 @@ def enrich_candle(kline):
     }
 
 async def handle_kline_message(symbol: str, candle: dict):
-    global live_buffers, asset_accuracy  # Ensure these are referenced globally
+    global live_buffers, asset_accuracy  
 
     price = candle["close"]
 
@@ -278,37 +291,28 @@ async def handle_kline_message(symbol: str, candle: dict):
     asset = asset_dict[symbol]
     last_price = getattr(asset, 'last_price', None)
     
+
     if final_decision == "buy" and asset.holdings == 0:
-        asset.buy(price)
-        # Increment trade count
+        qty = portfolio_manager.calculate_quantity(symbol, price)
+        portfolio_manager.buy(symbol, price, qty)
         asset.trade_count = getattr(asset, 'trade_count', 0) + 1
-        # Set last price for profit calculation
         asset.last_price = price
-        # Log the buy decision with confidence
         print(f"🔵 BUY EXECUTED at ${price} with confidence {confidence:.2f}")
 
-
     elif final_decision == "sell" and asset.holdings > 0:
-        # ✅ Ensure entry price is recorded
         portfolio_manager.update_price(symbol.upper(), price)
-        
-        # ✅ Call sell via PortfolioManager to enable SL/TP logging
         portfolio_manager.sell(symbol.upper(), price, correct=(price > last_price))
-            # Increment trade count
         asset.trade_count = getattr(asset, 'trade_count', 0) + 1
-
-
-        # Check if this was a winning trade
         if last_price and price > last_price:
             asset.win_count = getattr(asset, 'win_count', 0) + 1
-
-
-        # Log the sell decision with confidence
+        qty = getattr(asset, "quantity", 0.01)
         print(f"🔴 SELL EXECUTED at ${price} with confidence {confidence:.2f}")
+        
     else:
-        print("🛑🛑🛑🛑🛑✋✋✋⏳⏳⏳⏸️⏸️⏸️ Hold - No action ⏸️⏸️⏸️⏳⏳⏳✋✋✋🛑🛑🛑🛑🛑")
+        print("🛑🛑🛑🛑🛑✋✋✋⏸️⏸️PortAI is Holding Now  - No action is taken ⏸️⏸️⏸️✋✋✋🛑🛑🛑🛑🛑")
 
-    # Update asset status
+
+
     asset.status()
 
     # Get trade count safely
@@ -344,7 +348,7 @@ async def run_live_simulation():
     while True:
         try:
             async with websockets.connect(BINANCE_WS_URL) as websocket:
-                print("✅ Connected to Binance Testnet WebSocket...")
+                print("✅ Connect to Binance Live Multi-Asset Mainnet...")
                 async for message in websocket:
                     try:
                         data = json.loads(message)
@@ -394,5 +398,5 @@ async def snapshot_task(interval_sec=300):  # every 5 minutes
 
 
 if __name__ == "__main__":
-    print("🚀 Starting Live Multi-Asset Simulation on Testnet...")
+    print("🚀 Starting Live Multi-Asset Execution on Mainnet...")
     asyncio.run(run_live_simulation())

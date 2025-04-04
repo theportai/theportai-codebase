@@ -2,17 +2,22 @@ import os
 import csv
 from datetime import datetime
 from src.utils.enhance_trade_logging import TradeLogger
+from src.core.vault import Vault 
+
+vault = Vault()
 
 
 class PortfolioManager:
-    def __init__(self, asset_dict, accuracy_dict, snapshot_dir="logs/snapshots"):
+    def __init__(self, asset_dict, accuracy_dict, snapshot_dir="logs/snapshots", binance_api_key=None, binance_secret=None):
         self.assets = asset_dict  # Dictionary of Asset objects
         self.accuracy = accuracy_dict  # Tracks correct/total predictions per asset
         self.snapshot_dir = snapshot_dir
         os.makedirs(snapshot_dir, exist_ok=True)
 
+        self.BINANCE_API_KEY = vault.get_key("BINANCE_API_KEY", caller="start_live")
+        self.BINANCE_SECRET = vault.get_key("BINANCE_SECRET", caller="start_live")
+        
         self.prices = {}
-
         self.trade_logger = TradeLogger()
 
         self.entry_price = {
@@ -25,6 +30,22 @@ class PortfolioManager:
             writer = csv.writer(f)
             writer.writerow(["timestamp", "symbol", "exit_type", "entry_price", "exit_price", "pnl"])
 
+    def execute_real_order(self, symbol, side, qty, price):
+        headers = {
+            "X-MBX-APIKEY": self.BINANCE_API_KEY
+        }
+        # Phase 1: Log real intent
+        print(f"🔒 [REAL ORDER] Placing {side.upper()} on {symbol} for {qty} @ {price}")
+
+    def calculate_quantity(self, symbol, price, capital_fraction=1.0):
+        """
+        Calculates how much to buy based on available balance and price.
+        `capital_fraction=1.0` uses full balance, set to 0.5 for 50% usage.
+        """
+        asset = self.assets[symbol]
+        available_capital = asset.balance * capital_fraction
+        return round(available_capital / price, 6)  
+        
     def check_sl_tp(self, symbol, price, sl_pct=0.01, tp_pct=0.02):
         """
         Check whether Stop Loss or Take Profit was hit.
@@ -43,13 +64,22 @@ class PortfolioManager:
     def update_price(self, symbol, price):
         if symbol in self.assets:
             self.assets[symbol].update_price(price)
+        self.prices[symbol] = price
 
-    def buy(self, symbol, price):
-        quantity = self.balances[symbol] / price
-        self.holdings[symbol] += quantity
-        self.balances[symbol] = 0.0
-        self.trades[symbol] += 1
+    def buy(self, symbol, price, qty):
+        if symbol not in self.assets:
+            print(f"⚠️ Asset {symbol} not found in portfolio.")
+            return
+                
+        asset = self.assets[symbol]
+
+        self.execute_real_order(symbol, "BUY", qty, price)  
+
+        asset.holdings += qty
+        asset.balance -= qty * price
+        asset.trade_count = getattr(asset, 'trade_count', 0) + 1
         self.entry_price[symbol] = price
+        asset.last_price = price
 
     def sell(self, symbol, price, correct=True):
         symbol = symbol.lower()
@@ -58,6 +88,12 @@ class PortfolioManager:
             return
 
         asset = self.assets[symbol]
+        qty = asset.holdings
+        
+        # Execute real order
+        self.execute_real_order(symbol, "SELL", qty, price)
+        
+        # Update local state
         proceeds = asset.holdings * price
         asset.balance += proceeds
         asset.holdings = 0.0
@@ -125,7 +161,6 @@ class PortfolioManager:
                 writer.writerow(["timestamp", "symbol", "balance", "holdings", "pnl", "trades", "accuracy"])
 
             for symbol, asset in self.assets.items():
-                #value = asset.balance + (asset.holdings * asset.price)
                 price = self.prices.get(symbol, 0.0)
                 value = asset.balance + (asset.holdings * price)
                 pnl = value - 10000

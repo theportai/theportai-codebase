@@ -16,6 +16,8 @@ from src.core.token_manager import TokenManager
 
 # Initialize TokenManager
 tm = TokenManager()
+live_mode=True
+
 
 # Paths
 TRADE_LOG_DIR = Path("logs/trades")
@@ -61,6 +63,9 @@ if not st.session_state.authenticated:
 
 # ====== DASHBOARD SECTION (Only shown when authenticated) ======
 st.title("📊 PortAI Realtime Trading Dashboard")
+if live_mode:
+    st.markdown("🔴 **LIVE MODE ENABLED** — Real trades are active!", unsafe_allow_html=True)
+
 placeholder = st.empty()
 
 # Counter to ensure unique keys for each update cycle
