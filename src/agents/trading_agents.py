@@ -498,6 +498,8 @@ class DecisionMaker:
         return rolling_acc
         
     def decide(self, signals, symbol=None, current_price=None):
+        if symbol:
+            symbol = symbol.upper()
         buy_votes = 0
         sell_votes = 0
         hold_votes = 0

@@ -2,6 +2,9 @@ import time, hmac, hashlib, requests, csv # type: ignore
 from urllib.parse import urlencode
 from datetime import datetime
 from src.core.vault import Vault
+import json
+import math
+
 
 BASE_URL = "https://api.binance.com"
 
@@ -16,10 +19,19 @@ def generate_signature(params: dict, secret_key: str) -> str:
                     query_string.encode('utf-8'),
                     hashlib.sha256).hexdigest()
 
+def round_step_size(quantity, step_size):
+    precision = int(round(-math.log10(step_size), 0))
+    return round(quantity, precision)
+
 
 def execute_order(symbol, side, quantity, retries=3):
+    symbol = symbol.upper()
     path = "/api/v3/order"
     url = BASE_URL + path
+
+    # TEMP: Hardcoded step size (use dynamic fetch later)
+    step_size = 0.001
+    quantity = round_step_size(quantity, step_size)
 
     params = {
         "symbol": symbol,
@@ -33,7 +45,7 @@ def execute_order(symbol, side, quantity, retries=3):
     params["signature"] = generate_signature(params, API_SECRET)
     headers = {"X-MBX-APIKEY": API_KEY}
 
-    for attempt in range(retries):
+    for attempt in range(1, retries + 1):
         try:
             response = requests.post(url, headers=headers, params=params, timeout=10)
             data = response.json()
@@ -44,14 +56,17 @@ def execute_order(symbol, side, quantity, retries=3):
                 return data
             else:
                 log_order_response(data, "failure")
-                print(f"⚠️ Order Failed | Attempt {attempt+1}/{retries} | {data}")
+                print(f"⚠️ Order Failed | Attempt {attempt}/{retries} | {data}")
+
+                # Retry on specific Binance API errors
                 if data.get("code") in [-1003, -1013, -1021, -1100]:
                     time.sleep(2)
                     continue
                 break
         except Exception as e:
-            print(f"🔁 Retry {attempt+1}/{retries} | Network error: {e}")
+            print(f"🔁 Retry {attempt}/{retries} | Network error: {e}")
             time.sleep(2)
+
     return None
 
 
@@ -72,6 +87,8 @@ def get_binance_balances():
             data = response.json()
             balances = data.get("balances", [])
 
+
+            # ✅ Filter tradeable balances
             tracked_assets = {"BTC", "ETH", "USDT"}
             balance_dict = {
                 b["asset"]: float(b["free"])
@@ -80,14 +97,14 @@ def get_binance_balances():
             }
 
             if not balance_dict:
-                print("⚠️ No tradeable balance found!")
+                print("\n⚠️ No tradeable balance found!")
                 print("💡 Please deposit USDT, BTC or ETH in your Spot wallet before trading.")
             else:
-                print("💰 Available Balances:")
+                print("\n💰 Available Tradeable Balances:")
                 for asset, amount in balance_dict.items():
                     print(f"   {asset}: {amount}")
 
-            return balance_dict  # ✅ Return dict instead of raw list
+            return balance_dict
 
         else:
             print(f"❌ Failed to fetch balances | Status Code: {response.status_code} | Response: {response.text}")
@@ -96,10 +113,6 @@ def get_binance_balances():
     except Exception as e:
         print(f"❌ Error fetching Binance balances: {str(e)}")
         return {}
-
-    except Exception as e:
-        print(f"⚠️ Network error during balance fetch: {str(e)}")
-        return []
 
     
 
@@ -117,5 +130,6 @@ def log_order_response(data, status="success"):
             data.get("status"),
             data.get("executedQty"),
             data.get("cummulativeQuoteQty"),
-            str(data.get("fills", []))[:100]
+            #str(data.get("fills", []))[:100]
+            json.dumps(data.get("fills", []))[:300]
         ])
