@@ -21,13 +21,21 @@ from pydantic import BaseModel # type: ignore
 from src.utils.audit_logger import log_event
 from src.utils.binance_executor import get_binance_balances
 import uvicorn # type: ignore
+import signal
+import sys
 
 
-
+# ----------------------------------
+# FASTAPI SETUP
+# ----------------------------------
 app = FastAPI()
 token_manager = TokenManager()
 
-live_mode = False
+# ----------------------------------
+# Live Mode Setup
+# ----------------------------------
+live_mode = True
+
 
 
 @app.get("/health")
@@ -67,20 +75,26 @@ app.add_middleware(IPWhitelistMiddleware)
 client = hvac.Client(url=os.getenv("VAULT_ADDR"))
 client.token = os.getenv("VAULT_TOKEN")
 
+
+# ----------------------------------
+# VAULT SETUP
+# ----------------------------------
 vault = Vault()
 BINANCE_API_KEY = vault.get_key("BINANCE_API_KEY", caller="start_live")
 BINANCE_SECRET = vault.get_key("BINANCE_SECRET", caller="start_live")
 
 
+raw_balances = get_binance_balances() if live_mode else {}
 
-
-# ✅ WebSocket streams for multiple assets
+# ----------------------------------
+# CONFIG
+# ----------------------------------
 BINANCE_STREAMS = [
     "btcusdt@kline_1m",
     "ethusdt@kline_1m",
 ]
-
 BINANCE_WS_URL = "wss://stream.binance.com:9443/stream?streams=btcusdt@kline_1m/ethusdt@kline_1m"
+
 
 live_buffers = {
     "btcusdt": [],
@@ -92,11 +106,15 @@ market_agent = MarketAnalysisAgent()
 sentiment_agent = SentimentAgent()
 prediction_agent = PredictionAgent()
 
+asset_dict = {}
 
-asset_dict = {
-    "btcusdt": Asset("btcusdt", "BTC", "USDT", starting_balance=10000),
-    "ethusdt": Asset("ethusdt", "ETH", "USDT", starting_balance=10000),
-}
+
+for symbol, base, quote in [("BTCUSDT", "BTC", "USDT"), ("ETHUSDT", "ETH", "USDT"), ("SOLUSDT", "SOL", "USDT")]:
+    if live_mode:
+        if raw_balances.get("USDT", 0) > 0 or raw_balances.get(base, 0) > 0:
+            asset_dict[symbol] = Asset(symbol, base, quote, live_mode=live_mode)
+    else:
+        asset_dict[symbol] = Asset(symbol, base, quote, starting_balance=10000, live_mode=False)
 
 
 for symbol, asset in asset_dict.items():
@@ -114,45 +132,40 @@ class SafePortfolioReporter:
     def __init__(self, asset_dict, asset_accuracy):
         self.asset_dict = asset_dict
         self.asset_accuracy = asset_accuracy
-    
+
     def generate_report(self):
         try:
             total_balance = 0
             total_pnl = 0
             total_trades = 0
             total_wins = 0
-            
-            # Process each asset
+
             for symbol, asset in self.asset_dict.items():
-                # Get asset's current value
-                current_value = asset.balance
-                pnl = 0  # Default PnL
-                trades = getattr(asset, 'trade_count', 0)  # Safely get trade count
-                
-                # Calculate accuracy percentage safely
-                accuracy_percentage = 0
-                if symbol in self.asset_accuracy:
-                    acc_data = self.asset_accuracy[symbol]
-                    if acc_data["total_predictions"] > 0:
-                        accuracy_percentage = (acc_data["correct_predictions"] / acc_data["total_predictions"]) * 100
-                
-                # Print asset info
-                print(f"[{symbol}] USD Value: ${current_value:.2f}, PnL: ${pnl:.2f}, Trades: {trades}, Accuracy: {accuracy_percentage:.2f}%")
-                
-                # Add to totals
-                total_balance += current_value
+                value = asset.balance
+                pnl = asset.get_pnL() if hasattr(asset, "get_pnL") else 0
+                trades = asset.total_trades if hasattr(asset, "total_trades") else 0
+                wins = asset.winning_trades if hasattr(asset, "winning_trades") else 0
+
+                accuracy = 0.0
+                acc = self.asset_accuracy.get(symbol, {})
+                if acc.get("total_predictions", 0) > 0:
+                    accuracy = (acc["correct_predictions"] / acc["total_predictions"]) * 100
+
+                print(f"[{symbol}] USD Value: ${value:.2f}, PnL: ${pnl:.2f}, Trades: {trades}, Wins: {wins}, Accuracy: {accuracy:.2f}%")
+
+                total_balance += value
                 total_pnl += pnl
                 total_trades += trades
-                total_wins += getattr(asset, 'win_count', 0)  # Safely get win count
-            
-            # Print portfolio summary
-            print(f"🧑‍💼 Portfolio Summary:")
+                total_wins += wins
+
+            print(f"\n🧑‍💼 Portfolio Summary:")
             print(f"Total Balance: ${total_balance:.2f}")
             print(f"Total PnL: ${total_pnl:.2f}")
             print(f"Total Trades: {total_trades}")
             print(f"Total Wins: {total_wins}")
+
         except Exception as e:
-            print(f"⚠️ Error in generate_report: {str(e)}")
+            print(f"⚠️ Error in generate_report: {e}")
 
 portfolio_reporter = SafePortfolioReporter(asset_dict, asset_accuracy)
 
@@ -171,7 +184,7 @@ decision_maker.risk_manager.exposure_limits = {
     "ETHUSDT": {"capital": 50, "min_qty": 0.005}
 }
 
-portfolio_manager = PortfolioManager(asset_dict, asset_accuracy, "logs/snapshots", live_mode=False)
+portfolio_manager = PortfolioManager(asset_dict, asset_accuracy, "logs/snapshots", live_mode=live_mode)
 
 decision_maker.risk_manager.integrate_with_decision_maker(decision_maker)
 
@@ -299,6 +312,7 @@ async def handle_kline_message(symbol: str, candle: dict):
     print(f"Accuracy for {symbol.upper()} is: {accuracy_percentage:.2f}%")
 
     # Execute simulated trade based on decision
+    symbol = symbol.upper()
     asset = asset_dict[symbol]
     last_price = getattr(asset, 'last_price', None)
     
@@ -306,10 +320,14 @@ async def handle_kline_message(symbol: str, candle: dict):
     if final_decision == "buy" and asset.holdings == 0:
         qty = portfolio_manager.calculate_quantity(symbol, price)
         if live_mode:
-            portfolio_manager.buy(symbol, price, qty)
+            #portfolio_manager.buy(symbol, price, qty)
+            portfolio_manager.buy(symbol.upper(), price, qty, live=live_mode)
+            portfolio_manager.entry_price[symbol.upper()] = price
             print(f"🔵 BUY EXECUTED at ${price:.2f} | Qty: {qty:.6f} | Confidence: {confidence:.2f}")
         else:
-            portfolio_manager.buy(symbol, price, qty)
+            #portfolio_manager.buy(symbol, price, qty)
+            portfolio_manager.buy(symbol.upper(), price, qty, live=live_mode)
+            portfolio_manager.entry_price[symbol.upper()] = price
             print(f"[SIMULATION] Would BUY {symbol.upper()} at ${price:.2f} | Qty: {qty:.6f} | Confidence: {confidence:.2f}")
 
     elif final_decision == "sell" and asset.holdings > 0:
@@ -318,7 +336,7 @@ async def handle_kline_message(symbol: str, candle: dict):
         if sl_tp_hit:
             print(f"🚨 SL/TP Triggered for {symbol.upper()} – {sl_tp_hit.upper()}")
             portfolio_manager.risk_manager.in_cooldown = True
-            portfolio_manager.risk_manager.cooldown_end_time = datetime.now() + timedelta(hours=2)
+            portfolio_manager.risk_manager.cooldown_end_time = datetime.now() + timedelta(hours=2)  
 
             # Log SL/TP event
             with open(portfolio_manager.sl_tp_log_path, "a", newline="") as f:
@@ -334,12 +352,16 @@ async def handle_kline_message(symbol: str, candle: dict):
 
         portfolio_manager.update_price(symbol.upper(), price)
 
-        qty = portfolio_manager.calculate_quantity(symbol, price)
+        
+        qty = asset.holdings
+        
         if live_mode:
-            portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price))
+            #portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price))
+            portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price), live=live_mode)
             print(f"🔴 SELL EXECUTED at ${price:.2f} | Confidence: {confidence:.2f}")
         else:
-            portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price))
+            #portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price))
+            portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price), live=live_mode)
             print(f"[SIMULATION] Would SELL {symbol.upper()} at ${price:.2f} | Confidence: {confidence:.2f}")
         
     else:
@@ -461,8 +483,24 @@ async def snapshot_task(interval_sec=300):  # every 5 minutes
 
 
 if __name__ == "__main__":
+
+    def handle_shutdown(sig, frame):
+        print("\n🛑 Shutdown signal received. Saving final snapshot...")
+        try:
+            portfolio_manager.save_snapshot()
+            print("📸 Final snapshot saved before exit.")
+        except Exception as e:
+            print(f"⚠️ Error during shutdown snapshot: {str(e)}")
+        sys.exit(0)
+
+    # Register Ctrl+C handler
+    signal.signal(signal.SIGINT, handle_shutdown)
+    signal.signal(signal.SIGTERM, handle_shutdown)
+
+
     if live_mode:
         print("🔴 PortAI is running in LIVE MODE – Real trades will be executed on Binance Mainnet!")
     else:
         print("🟡 PortAI is running in SIMULATION mode – No real trades will occur.")
+        
     asyncio.run(run_live_simulation())
