@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server.js";  
-import cloudinary from "@/lib/cloudinary.js";  
+import cloudinary from "../../../lib/cloudinary.js";
 import prisma from "../../../lib/prisma.mjs";
 import { v4 as uuidv4 } from "uuid";
 
