@@ -4,10 +4,20 @@ from datetime import datetime
 from src.utils.enhance_trade_logging import TradeLogger
 from src.core.vault import Vault
 from src.utils.binance_executor import execute_order
-from src.utils.binance_executor import get_binance_balances
+from src.utils.binance_executor import get_binance_balances,round_step_size
+import math
+import time
+
 
 vault = Vault()
 
+
+# ✅ Step sizes per asset (from Binance exchange info)
+STEP_SIZE_MAP = {
+    "BTCUSDT": 0.00001,
+    "ETHUSDT": 0.0001,
+    "SOLUSDT": 0.001
+}
 
 class PortfolioManager:
     def __init__(self, asset_dict, accuracy_dict, snapshot_dir="logs/snapshots", binance_api_key=None, binance_secret=None, live_mode=True):
@@ -33,21 +43,48 @@ class PortfolioManager:
 
     def execute_real_order(self, symbol, side, qty, price):
         print(f"\U0001F680 Real Trade Triggered: {symbol} {side} {qty} @ {price}")
-        result = execute_order(symbol, side, qty)
-
-        if result:
-            order_id = result.get("orderId")
-            self.assets[symbol].last_trade_id = order_id
-            print(f"✅ Order Executed | ID: {order_id}")
-        else:
-            print(f"❌ Trade execution failed for {symbol} {side}")
+        
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                result = execute_order(symbol, side, qty)
+                
+                if result:
+                    order_id = result.get("orderId")
+                    self.assets[symbol].last_trade_id = order_id
+                    print(f"✅ Order Success | {symbol} {side} {qty} | Order ID: {order_id}")
+                    return result
+                else:
+                    print(f"⚠️ Order Failed | Attempt {attempt}/{max_attempts} | Order returned no result")
+                    
+            except Exception as e:
+                print(f"⚠️ Order Failed | Attempt {attempt}/{max_attempts} | {e}")
+            
+            # If this was our last attempt, give up
+            if attempt == max_attempts:
+                print(f"❌ Final Order Failure: {symbol} {side} {qty}")
+                break
+                
+            # Wait briefly before retrying
+            time.sleep(1)
+        
+        return None
 
     def calculate_quantity(self, symbol, price, capital_fraction=1.0):
         symbol = symbol.upper()
         asset = self.assets[symbol]
-        #asset = self.assets[symbol]
-        available_capital = asset.balance * capital_fraction
-        quantity = round(available_capital / price, 6)
+        available_capital = asset.balance * capital_fraction        
+        min_notional = 5.0  
+        raw_quantity = available_capital / price
+        # Check if trade value is above the min notional threshold
+        if raw_quantity * price < min_notional:
+            print(f"⚠️ Order too small! Notional = ${raw_quantity * price:.2f} — must be ≥ ${min_notional}")
+            return 0.0
+
+        # ✅ Round properly to prevent Binance step size rejection
+        #step_size = 0.00001  # You can later fetch per-symbol
+        step_size = STEP_SIZE_MAP.get(symbol, 0.001)        
+        quantity = round_step_size(raw_quantity, step_size)
         return quantity
 
     def check_sl_tp(self, symbol, price, sl_pct=0.01, tp_pct=0.02):
@@ -88,6 +125,7 @@ class PortfolioManager:
         symbol = symbol.upper()
         asset_code = symbol.replace("USDT", "")
         
+        # Calculate quantity if not given
         if quantity is None:
             quantity = self.calculate_quantity(symbol, price)
 
@@ -98,55 +136,100 @@ class PortfolioManager:
         if self.live_mode:
             balances = get_binance_balances()
             usdt_available = balances.get("USDT", 0.0)
+            required_usdt = price * quantity
 
-            if usdt_available < price * quantity:
-                print(f"⛔ Not enough USDT to buy {symbol} — Required: {price*quantity:.2f}, Available: {usdt_available:.2f}")
+            # Float-safe capital check
+            if usdt_available + 0.01 < required_usdt:
+                print(f"⛔ Not enough USDT to buy {symbol} — Required: {required_usdt:.2f}, Available: {usdt_available:.2f}")
                 return
 
-            self.execute_real_order(symbol, "BUY", quantity, price)
+            # Execute real order and only proceed if successful
+            result = self.execute_real_order(symbol, "BUY", quantity, price)
+            if not result:
+                print(f"❌ Order failed for {symbol} — skipping portfolio update")
+                return
         else:
-            print(f"🧪 Simulated BUY: {symbol} {quantity} at {price}")
+            print(f"🧪 Simulated BUY: {symbol} {quantity:.6f} at {price:.2f}")
 
+        # ✅ Update portfolio only if real/simulated buy confirmed
         self.assets[symbol].buy(price, quantity)
         self.log_trade(symbol, "BUY", price, quantity, confidence, live)
         self.save_snapshot()
 
     def sell(self, symbol, price, quantity=None, confidence=0.0, live=False, correct=None):
-        #symbol = symbol.lower()
         symbol = symbol.upper()
         asset = self.assets[symbol]
-        
-        #asset = self.assets[symbol]
 
         if asset.holdings <= 0:
-            print(f"⚠️ No holdings to SELL for {symbol.upper()}")
-            return
+            print(f"⚠️ No holdings to SELL for {symbol}")
+            return False
 
-        if quantity is None or quantity <= 0:
-            quantity = asset.holdings
-            print(f"🔄 Selling all holdings: {quantity:.6f} {symbol.upper()}")
-
+        step_size = STEP_SIZE_MAP.get(symbol, 0.001)
+        
+        min_notional = 20 
+        
+        min_quantity = min_notional / price
+        min_quantity = math.ceil(min_quantity / step_size) * step_size
+        
+        if quantity is None or quantity <= 0 or quantity >= asset.holdings:
+            buffer_ratio = 0.95
+            
+            raw_quantity = asset.holdings * buffer_ratio
+            
+            quantity = math.floor(raw_quantity / step_size) * step_size
+            
+            print(f"🔄 Selling with safety margin: {quantity:.8f} {symbol.upper()} (Original: {asset.holdings:.8f})")
+        
+        notional_value = quantity * price
+        if notional_value < min_notional:
+            if asset.holdings * price >= min_notional:
+                # If total holdings meet minimum, use the minimum quantity
+                quantity = min_quantity
+                print(f"⚠️ Adjusted quantity to meet minimum notional: {quantity:.8f} {symbol.upper()} (${notional_value:.2f} → ${quantity * price:.2f})")
+            else:
+                print(f"❌ Cannot sell - total holdings value (${asset.holdings * price:.2f}) below minimum notional (${min_notional:.2f})")
+                return False
+        
         if quantity <= 0:
-            print(f"❌ Quantity zero — aborting SELL for {symbol}")
-            return
+            print(f"❌ Invalid quantity ({quantity:.8f}) — aborting SELL for {symbol}")
+            return False
+        
+        if quantity > asset.holdings:
+            quantity = math.floor(asset.holdings / step_size) * step_size
+            print(f"⚠️ Adjusted quantity to match holdings: {quantity:.8f} {symbol.upper()}")
+
+        print(f"🧾 Wallet: {asset.holdings:.8f} {asset.base_currency} | Attempting to SELL: {quantity:.8f}")
+        print(f"🧾 Wallet Free: {asset.holdings:.8f} {asset.base_currency} | Attempting to SELL: {quantity:.8f}")
 
         if correct is not None:
             if correct:
-                print(f"✅ Model CORRECT on SELL for {symbol.upper()}")
+                print(f"✅ Model CORRECT on SELL for {symbol}")
             else:
-                print(f"❌ Model INCORRECT on SELL for {symbol.upper()}")
+                print(f"❌ Model INCORRECT on SELL for {symbol}")
 
-        if self.live_mode:
-            self.execute_real_order(symbol, "SELL", quantity, price)
+        result = None
+        if self.live_mode and live:
+            result = self.execute_real_order(symbol, "SELL", quantity, price)
+
+        if result is not None or not self.live_mode or not live:
+            actual_quantity = quantity
+            if result and 'executedQty' in result:
+                actual_quantity = float(result['executedQty'])
+                
+            asset.sell(price, actual_quantity)
+            
+            if self.live_mode and live:
+                print(f"🔴 SELL EXECUTED at ${price:.2f} | Confidence: {confidence:.2f} | Quantity: {actual_quantity}")
+            else:
+                print(f"[SIMULATION] SELL {symbol} at ${price:.2f} | Confidence: {confidence:.2f}")
+                
+            if hasattr(self, "log_trade"):
+                self.log_trade(symbol, "SELL", price, actual_quantity, confidence, live)
+            self.save_snapshot()
+            return True
         else:
-            print(f"🧪 Simulated SELL: {symbol} {quantity:.6f} at {price}")
-
-        asset.sell(price, quantity)
-
-        if hasattr(self, "log_trade"):
-            self.log_trade(symbol, "SELL", price, quantity, confidence, live)
-
-        self.save_snapshot()
+            print(f"❌ Trade execution failed for {symbol} SELL")
+            return False
 
     def get_portfolio_value(self, symbol):
         #asset = self.assets[symbol]

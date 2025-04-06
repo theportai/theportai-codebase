@@ -357,8 +357,10 @@ async def handle_kline_message(symbol: str, candle: dict):
         
         if live_mode:
             #portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price))
-            portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price), live=live_mode)
-            print(f"🔴 SELL EXECUTED at ${price:.2f} | Confidence: {confidence:.2f}")
+            #portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price), live=live_mode)
+            sell_success = portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price), live=live_mode)
+            if sell_success:
+                print(f"🔴 SELL EXECUTED at ${price:.2f} | Confidence: {confidence:.2f}")
         else:
             #portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price))
             portfolio_manager.sell(symbol.upper(), price, qty, correct=(price > last_price), live=live_mode)
