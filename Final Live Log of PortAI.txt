@@ -1,0 +1,456 @@
+theadityanathmishra@ADITYAs-MacBook-Pro portai-codebade % python -m src.server.start_live
+2025-04-05 23:05:03,977 - PortAI-RiskManager - INFO - RiskManager initialized with exposure limits: {'BTCUSDT': 0.001, 'ETHUSDT': 0.01, 'SOLUSDT': 0.005}
+2025-04-05 23:05:04,240 - PortAI-Vault - INFO - Vault initialized with secure settings
+2025-04-05 23:05:04,264 - PortAI-Vault - INFO - [Vault] start_live accessed key: BINANCE_API_KEY (request: 0848c8777a8f)
+2025-04-05 23:05:04,307 - PortAI-Vault - INFO - [Vault] start_live accessed key: BINANCE_SECRET (request: 3fd876752595)
+
+💰 Available Tradeable Balances:
+   USDT: 20.541
+2025-04-05 23:05:04,622 - PortAI-Trading-Agents - INFO - Loading model from model_artifacts_20250403_004624/xgboost_model.pkl
+🔐 Live mode enabled – syncing BTCUSDT from Binance wallet...
+
+💰 Available Tradeable Balances:
+   USDT: 20.541
+🔐 Live mode enabled – syncing ETHUSDT from Binance wallet...
+
+💰 Available Tradeable Balances:
+   USDT: 20.541
+🔐 Live mode enabled – syncing SOLUSDT from Binance wallet...
+
+💰 Available Tradeable Balances:
+   USDT: 20.541
+2025-04-05 23:05:05,338 - PortAI-RiskManager - INFO - RiskManager initialized with exposure limits: {'BTCUSDT': {'capital': 50, 'min_qty': 0.0005}, 'ETHUSDT': {'capital': 50, 'min_qty': 0.005}, 'SOLUSDT': {'capital': 20, 'min_qty': 0.2}}
+2025-04-05 23:05:05,388 - PortAI-Vault - INFO - [Vault] start_live accessed key: BINANCE_API_KEY (request: ee12883655ce)
+2025-04-05 23:05:05,426 - PortAI-Vault - INFO - [Vault] start_live accessed key: BINANCE_SECRET (request: b1503209613e)
+2025-04-05 23:05:05,445 - PortAI-RiskManager - INFO - Risk manager successfully integrated with decision maker
+
+💰 Available Tradeable Balances:
+   USDT: 20.541
+🔴 PortAI is running in LIVE MODE – Real trades will be executed on Binance Mainnet!
+📸 Portfolio snapshot saved.
+✅ Connect to Binance Live Multi-Asset Mainnet...
+2025-04-05 23:06:00,123 - PortAI-Trading-Agents - INFO - Market analysis: hold (confidence: 0.00)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:06:01,276 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0924, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0501}
+2025-04-05 23:06:04,227 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:06:04,227 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:06:04,228 - PortAI-Trading-Agents - INFO -   market_analysis: hold (weight: 3)
+2025-04-05 23:06:04,228 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:06:04,228 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:06:04,228 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.00, sell=0.00, hold=1.00
+2025-04-05 23:06:04,228 - PortAI-Trading-Agents - INFO - Final decision: hold (consecutive count: 1)
+
+🕒 2025-04-05 23:05:00 | [BTCUSDT] PRICE: 82860.37
+Signals: {'market_analysis': 'hold', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: hold
+Model Confidence: 0.00
+Accuracy for BTCUSDT is: 100.00%
+🛑🛑🛑🛑🛑✋✋✋⏸️⏸️PortAI is Holding Now  - No action is taken ⏸️⏸️⏸️✋✋✋🛑🛑🛑🛑🛑
+[BTCUSDT] BALANCE: $20.54 | HOLDINGS: 0.0000 BTC | PnL: $-20.54 | Trades: 0 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $61.62
+Total PnL: $-61.62
+Total Trades: 0
+Total Wins: 0
+2025-04-05 23:06:04,229 - PortAI-Trading-Agents - INFO - Market analysis: sell (confidence: 0.90)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:06:04,653 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0924, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0501}
+2025-04-05 23:06:08,853 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:06:08,853 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:06:08,853 - PortAI-Trading-Agents - INFO -   market_analysis: sell (weight: 3)
+2025-04-05 23:06:08,853 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:06:08,853 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:06:08,853 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.00, sell=0.50, hold=0.50
+2025-04-05 23:06:08,853 - PortAI-Trading-Agents - INFO - Final decision: sell (consecutive count: 1)
+
+🕒 2025-04-05 23:05:00 | [ETHUSDT] PRICE: 1786.85
+Signals: {'market_analysis': 'sell', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: sell
+Model Confidence: 0.00
+Accuracy for ETHUSDT is: 0.00%
+🛑🛑🛑🛑🛑✋✋✋⏸️⏸️PortAI is Holding Now  - No action is taken ⏸️⏸️⏸️✋✋✋🛑🛑🛑🛑🛑
+[ETHUSDT] BALANCE: $20.54 | HOLDINGS: 0.0000 ETH | PnL: $-20.54 | Trades: 0 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $61.62
+Total PnL: $-61.62
+Total Trades: 0
+Total Wins: 0
+2025-04-05 23:07:01,839 - PortAI-Trading-Agents - INFO - Market analysis: hold (confidence: 0.00)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:07:02,272 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0924, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0501}
+2025-04-05 23:07:05,786 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:07:05,787 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:07:05,787 - PortAI-Trading-Agents - INFO -   market_analysis: hold (weight: 3)
+2025-04-05 23:07:05,787 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:07:05,787 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:07:05,787 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.00, sell=0.00, hold=1.00
+2025-04-05 23:07:05,787 - PortAI-Trading-Agents - INFO - Final decision: hold (consecutive count: 1)
+
+🕒 2025-04-05 23:06:00 | [BTCUSDT] PRICE: 82887.61
+Signals: {'market_analysis': 'hold', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: hold
+Model Confidence: 0.00
+Accuracy for BTCUSDT is: 100.00%
+🛑🛑🛑🛑🛑✋✋✋⏸️⏸️PortAI is Holding Now  - No action is taken ⏸️⏸️⏸️✋✋✋🛑🛑🛑🛑🛑
+[BTCUSDT] BALANCE: $20.54 | HOLDINGS: 0.0000 BTC | PnL: $-20.54 | Trades: 0 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $61.62
+Total PnL: $-61.62
+Total Trades: 0
+Total Wins: 0
+2025-04-05 23:07:05,787 - PortAI-Trading-Agents - INFO - Market analysis: buy (confidence: 0.90)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:07:06,213 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0924, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0501}
+2025-04-05 23:07:08,894 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:07:08,894 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:07:08,894 - PortAI-Trading-Agents - INFO -   market_analysis: buy (weight: 3)
+2025-04-05 23:07:08,894 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:07:08,894 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:07:08,894 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.50, sell=0.00, hold=0.50
+2025-04-05 23:07:08,894 - PortAI-Trading-Agents - INFO - Final decision: buy (consecutive count: 1)
+
+🕒 2025-04-05 23:06:00 | [ETHUSDT] PRICE: 1787.91
+Signals: {'market_analysis': 'buy', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: buy
+Model Confidence: 0.00
+Accuracy for ETHUSDT is: 0.00%
+
+💰 Available Tradeable Balances:
+   USDT: 20.541
+⛔ Not enough USDT to buy ETHUSDT — Required: 20.54, Available: 20.54
+🔵 BUY EXECUTED at $1787.91 | Qty: 0.011489 | Confidence: 0.00
+[ETHUSDT] BALANCE: $20.54 | HOLDINGS: 0.0000 ETH | PnL: $-20.54 | Trades: 0 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $61.62
+Total PnL: $-61.62
+Total Trades: 0
+Total Wins: 0
+2025-04-05 23:08:00,090 - PortAI-Trading-Agents - INFO - Market analysis: hold (confidence: 0.00)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:08:00,524 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0924, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0501}
+2025-04-05 23:08:02,882 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:08:02,882 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:08:02,882 - PortAI-Trading-Agents - INFO -   market_analysis: hold (weight: 3)
+2025-04-05 23:08:02,882 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:08:02,882 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:08:02,882 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.00, sell=0.00, hold=1.00
+2025-04-05 23:08:02,882 - PortAI-Trading-Agents - INFO - Final decision: hold (consecutive count: 1)
+
+🕒 2025-04-05 23:07:00 | [BTCUSDT] PRICE: 82878.95
+Signals: {'market_analysis': 'hold', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: hold
+Model Confidence: 0.00
+Accuracy for BTCUSDT is: 100.00%
+🛑🛑🛑🛑🛑✋✋✋⏸️⏸️PortAI is Holding Now  - No action is taken ⏸️⏸️⏸️✋✋✋🛑🛑🛑🛑🛑
+[BTCUSDT] BALANCE: $20.54 | HOLDINGS: 0.0000 BTC | PnL: $-20.54 | Trades: 0 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $61.62
+Total PnL: $-61.62
+Total Trades: 0
+Total Wins: 0
+2025-04-05 23:08:02,883 - PortAI-Trading-Agents - INFO - Market analysis: buy (confidence: 0.50)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:08:03,320 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0924, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0501}
+2025-04-05 23:08:07,232 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:08:07,233 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:08:07,233 - PortAI-Trading-Agents - INFO -   market_analysis: buy (weight: 3)
+2025-04-05 23:08:07,233 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:08:07,233 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:08:07,233 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.50, sell=0.00, hold=0.50
+2025-04-05 23:08:07,233 - PortAI-Trading-Agents - INFO - Final decision: buy (consecutive count: 1)
+
+🕒 2025-04-05 23:07:00 | [ETHUSDT] PRICE: 1788.13
+Signals: {'market_analysis': 'buy', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: buy
+Model Confidence: 0.00
+Accuracy for ETHUSDT is: 0.00%
+
+💰 Available Tradeable Balances:
+   USDT: 20.541
+🚀 Real Trade Triggered: ETHUSDT BUY 0.011487 @ 1788.13
+✅ Order Success | ETHUSDT BUY 0.011 | Order ID: 27694081352
+✅ Order Executed | ID: 27694081352
+✅ Bought 0.0115 ETHUSDT at $1788.13 | New Holdings: 0.0115
+🔵 BUY EXECUTED at $1788.13 | Qty: 0.011487 | Confidence: 0.00
+[ETHUSDT] BALANCE: $0.00 | HOLDINGS: 0.0115 ETH | PnL: $20.54 | Trades: 1 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $0.00, PnL: $20.54, Trades: 1, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $41.08
+Total PnL: $-20.54
+Total Trades: 1
+Total Wins: 0
+2025-04-05 23:09:00,837 - PortAI-Trading-Agents - INFO - Market analysis: hold (confidence: 0.00)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:09:02,234 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0924, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0501}
+2025-04-05 23:09:04,260 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:09:04,260 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:09:04,260 - PortAI-Trading-Agents - INFO -   market_analysis: hold (weight: 3)
+2025-04-05 23:09:04,260 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:09:04,260 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:09:04,260 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.00, sell=0.00, hold=1.00
+2025-04-05 23:09:04,260 - PortAI-Trading-Agents - INFO - Final decision: hold (consecutive count: 1)
+
+🕒 2025-04-05 23:08:00 | [BTCUSDT] PRICE: 82870.0
+Signals: {'market_analysis': 'hold', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: hold
+Model Confidence: 0.00
+Accuracy for BTCUSDT is: 100.00%
+🛑🛑🛑🛑🛑✋✋✋⏸️⏸️PortAI is Holding Now  - No action is taken ⏸️⏸️⏸️✋✋✋🛑🛑🛑🛑🛑
+[BTCUSDT] BALANCE: $20.54 | HOLDINGS: 0.0000 BTC | PnL: $-20.54 | Trades: 0 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $0.00, PnL: $20.54, Trades: 1, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $41.08
+Total PnL: $-20.54
+Total Trades: 1
+Total Wins: 0
+2025-04-05 23:09:04,260 - PortAI-Trading-Agents - INFO - Market analysis: buy (confidence: 0.50)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:09:04,754 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0924, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0501}
+2025-04-05 23:09:06,437 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:09:06,437 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:09:06,437 - PortAI-Trading-Agents - INFO -   market_analysis: buy (weight: 3)
+2025-04-05 23:09:06,437 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:09:06,437 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:09:06,437 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.50, sell=0.00, hold=0.50
+2025-04-05 23:09:06,437 - PortAI-Trading-Agents - INFO - Final decision: buy (consecutive count: 1)
+
+🕒 2025-04-05 23:08:00 | [ETHUSDT] PRICE: 1788.27
+Signals: {'market_analysis': 'buy', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: buy
+Model Confidence: 0.00
+Accuracy for ETHUSDT is: 0.00%
+🛑🛑🛑🛑🛑✋✋✋⏸️⏸️PortAI is Holding Now  - No action is taken ⏸️⏸️⏸️✋✋✋🛑🛑🛑🛑🛑
+[ETHUSDT] BALANCE: $0.00 | HOLDINGS: 0.0115 ETH | PnL: $20.54 | Trades: 1 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $0.00, PnL: $20.54, Trades: 1, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $41.08
+Total PnL: $-20.54
+Total Trades: 1
+Total Wins: 0
+2025-04-05 23:10:00,101 - PortAI-Trading-Agents - INFO - Market analysis: buy (confidence: 0.70)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:10:00,590 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0924, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0501}
+2025-04-05 23:10:02,826 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:10:02,826 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:10:02,826 - PortAI-Trading-Agents - INFO -   market_analysis: buy (weight: 3)
+2025-04-05 23:10:02,826 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:10:02,826 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:10:02,826 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.50, sell=0.00, hold=0.50
+2025-04-05 23:10:02,826 - PortAI-Trading-Agents - INFO - Final decision: buy (consecutive count: 2)
+
+🕒 2025-04-05 23:09:00 | [BTCUSDT] PRICE: 82899.2
+Signals: {'market_analysis': 'buy', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: buy
+Model Confidence: 0.00
+Accuracy for BTCUSDT is: 80.00%
+
+💰 Available Tradeable Balances:
+   ETH: 0.010989
+   USDT: 0.86783
+⛔ Not enough USDT to buy BTCUSDT — Required: 20.56, Available: 0.87
+🔵 BUY EXECUTED at $82899.20 | Qty: 0.000248 | Confidence: 0.00
+[BTCUSDT] BALANCE: $20.54 | HOLDINGS: 0.0000 BTC | PnL: $-20.54 | Trades: 0 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $0.00, PnL: $20.54, Trades: 1, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $41.08
+Total PnL: $-20.54
+Total Trades: 1
+Total Wins: 0
+2025-04-05 23:10:03,097 - PortAI-Trading-Agents - INFO - Market analysis: buy (confidence: 0.85)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:10:03,535 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0924, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0501}
+2025-04-05 23:10:05,407 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:10:05,407 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:10:05,407 - PortAI-Trading-Agents - INFO -   market_analysis: buy (weight: 3)
+2025-04-05 23:10:05,407 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:10:05,407 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:10:05,407 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.50, sell=0.00, hold=0.50
+2025-04-05 23:10:05,407 - PortAI-Trading-Agents - INFO - Final decision: buy (consecutive count: 3)
+
+🕒 2025-04-05 23:09:00 | [ETHUSDT] PRICE: 1788.39
+Signals: {'market_analysis': 'buy', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: buy
+Model Confidence: 0.00
+Accuracy for ETHUSDT is: 0.00%
+🛑🛑🛑🛑🛑✋✋✋⏸️⏸️PortAI is Holding Now  - No action is taken ⏸️⏸️⏸️✋✋✋🛑🛑🛑🛑🛑
+[ETHUSDT] BALANCE: $0.00 | HOLDINGS: 0.0115 ETH | PnL: $20.54 | Trades: 1 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $0.00, PnL: $20.54, Trades: 1, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $41.08
+Total PnL: $-20.54
+Total Trades: 1
+Total Wins: 0
+📸 Portfolio snapshot saved.
+2025-04-05 23:11:00,465 - PortAI-Trading-Agents - INFO - Market analysis: buy (confidence: 0.80)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:11:00,916 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0543, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0374}
+2025-04-05 23:11:04,224 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:11:04,224 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:11:04,224 - PortAI-Trading-Agents - INFO -   market_analysis: buy (weight: 3)
+2025-04-05 23:11:04,224 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:11:04,224 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:11:04,224 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.50, sell=0.00, hold=0.50
+2025-04-05 23:11:04,224 - PortAI-Trading-Agents - INFO - Final decision: buy (consecutive count: 4)
+
+🕒 2025-04-05 23:10:00 | [BTCUSDT] PRICE: 82882.04
+Signals: {'market_analysis': 'buy', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: buy
+Model Confidence: 0.00
+Accuracy for BTCUSDT is: 66.67%
+
+💰 Available Tradeable Balances:
+   ETH: 0.010989
+   USDT: 0.86783
+⛔ Not enough USDT to buy BTCUSDT — Required: 20.55, Available: 0.87
+🔵 BUY EXECUTED at $82882.04 | Qty: 0.000248 | Confidence: 0.00
+[BTCUSDT] BALANCE: $20.54 | HOLDINGS: 0.0000 BTC | PnL: $-20.54 | Trades: 0 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $0.00, PnL: $20.54, Trades: 1, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $41.08
+Total PnL: $-20.54
+Total Trades: 1
+Total Wins: 0
+2025-04-05 23:11:04,474 - PortAI-Trading-Agents - INFO - Market analysis: buy (confidence: 0.75)
+[News Info]: Analyzing 10 headlines
+[Twitter Info]: Using backup data due to API limitations
+[Twitter Info]: Analyzed 8 sample tweets
+2025-04-05 23:11:04,919 - praw - WARNING - It appears that you are using PRAW in an asynchronous environment.
+It is strongly recommended to use Async PRAW: https://asyncpraw.readthedocs.io.
+See https://praw.readthedocs.io/en/latest/getting_started/multiple_instances.html#discord-bots-and-asynchronous-environments for more info.
+
+[Reddit Info]: Analyzing 50 Reddit posts
+🧠 Sentiment Scores: {'news': 0.0543, 'twitter': 0.0737, 'reddit': -0.0157, 'final_score': 0.0374}
+2025-04-05 23:11:06,961 - PortAI-Trading-Agents - INFO - Sentiment: HOLD — confidence: 0.3
+2025-04-05 23:11:06,961 - PortAI-Trading-Agents - INFO - Agent decisions:
+2025-04-05 23:11:06,961 - PortAI-Trading-Agents - INFO -   market_analysis: buy (weight: 3)
+2025-04-05 23:11:06,961 - PortAI-Trading-Agents - INFO -   sentiment: hold (weight: 1)
+2025-04-05 23:11:06,961 - PortAI-Trading-Agents - INFO -   prediction: hold (weight: 2)
+2025-04-05 23:11:06,961 - PortAI-Trading-Agents - INFO - Vote distribution: buy=0.50, sell=0.00, hold=0.50
+2025-04-05 23:11:06,961 - PortAI-Trading-Agents - INFO - Final decision: buy (consecutive count: 5)
+
+🕒 2025-04-05 23:10:00 | [ETHUSDT] PRICE: 1788.1
+Signals: {'market_analysis': 'buy', 'sentiment': 'hold', 'prediction': 'hold'} → Final Decision: buy
+Model Confidence: 0.00
+Accuracy for ETHUSDT is: 0.00%
+🛑🛑🛑🛑🛑✋✋✋⏸️⏸️PortAI is Holding Now  - No action is taken ⏸️⏸️⏸️✋✋✋🛑🛑🛑🛑🛑
+[ETHUSDT] BALANCE: $0.00 | HOLDINGS: 0.0115 ETH | PnL: $20.54 | Trades: 1 | Wins: 0
+[BTCUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+[ETHUSDT] USD Value: $0.00, PnL: $20.54, Trades: 1, Wins: 0, Accuracy: 0.00%
+[SOLUSDT] USD Value: $20.54, PnL: $-20.54, Trades: 0, Wins: 0, Accuracy: 0.00%
+
+🧑‍💼 Portfolio Summary:
+Total Balance: $41.08
+Total PnL: $-20.54
+Total Trades: 1
+Total Wins: 0
+^C
+🛑 Shutdown signal received. Saving final snapshot...
+📸 Final snapshot saved before exit.
+^C
+🛑 Shutdown signal received. Saving final snapshot...
+📸 Final snapshot saved before exit.
+theadityanathmishra@ADITYAs-MacBook-Pro portai-codebade % 

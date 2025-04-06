@@ -63,3 +63,7 @@ class Asset:
 
     def calculate_wins(self):
         return self.winning_trades
+    
+    def update_price(self, price: float):
+        self.last_price = price
+        print(f"📉 Updated {self.symbol.upper()} last price: ${price:.2f}")

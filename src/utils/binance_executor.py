@@ -1,10 +1,9 @@
-import time, hmac, hashlib, requests, csv # type: ignore
+import time, hmac, hashlib, requests, csv  # type: ignore
 from urllib.parse import urlencode
 from datetime import datetime
 from src.core.vault import Vault
 import json
 import math
-
 
 BASE_URL = "https://api.binance.com"
 
@@ -12,6 +11,12 @@ vault = Vault()
 API_KEY = vault.get_key("BINANCE_API_KEY", caller="binance_client")
 API_SECRET = vault.get_key("BINANCE_SECRET", caller="binance_client")
 
+
+STEP_SIZE_MAP = {
+    "BTCUSDT": 0.00001,
+    "ETHUSDT": 0.0001,
+    "SOLUSDT": 0.001
+}
 
 def generate_signature(params: dict, secret_key: str) -> str:
     query_string = urlencode(params)
@@ -23,21 +28,36 @@ def round_step_size(quantity, step_size):
     precision = int(round(-math.log10(step_size), 0))
     return round(quantity, precision)
 
+def get_symbol_step_size(symbol):
+    url = f"{BASE_URL}/api/v3/exchangeInfo"
+    try:
+        response = requests.get(url, timeout=10)
+        data = response.json()
+
+        for s in data["symbols"]:
+            if s["symbol"] == symbol.upper():
+                for f in s["filters"]:
+                    if f["filterType"] == "LOT_SIZE":
+                        return float(f["stepSize"])
+    except Exception as e:
+        print(f"❌ Error fetching step size: {e}")
+
+    return 0.001  # fallback default
 
 def execute_order(symbol, side, quantity, retries=3):
     symbol = symbol.upper()
     path = "/api/v3/order"
     url = BASE_URL + path
 
-    # TEMP: Hardcoded step size (use dynamic fetch later)
-    step_size = 0.001
+    # ✅ Fetch dynamic step size
+    step_size = get_symbol_step_size(symbol)
     quantity = round_step_size(quantity, step_size)
 
     params = {
         "symbol": symbol,
         "side": side,
         "type": "MARKET",
-        "quantity": quantity,
+        "quantity": f"{quantity:.8f}",
         "timestamp": int(time.time() * 1000),
         "recvWindow": 5000
     }
@@ -58,7 +78,6 @@ def execute_order(symbol, side, quantity, retries=3):
                 log_order_response(data, "failure")
                 print(f"⚠️ Order Failed | Attempt {attempt}/{retries} | {data}")
 
-                # Retry on specific Binance API errors
                 if data.get("code") in [-1003, -1013, -1021, -1100]:
                     time.sleep(2)
                     continue
@@ -67,8 +86,8 @@ def execute_order(symbol, side, quantity, retries=3):
             print(f"🔁 Retry {attempt}/{retries} | Network error: {e}")
             time.sleep(2)
 
-    return None
-
+    print(f"❌ Final Order Failure: {symbol} {side} {quantity}")
+    return False
 
 def get_binance_balances():
     timestamp = int(time.time() * 1000)
@@ -87,8 +106,6 @@ def get_binance_balances():
             data = response.json()
             balances = data.get("balances", [])
 
-
-            # ✅ Filter tradeable balances
             tracked_assets = {"BTC", "ETH", "USDT"}
             balance_dict = {
                 b["asset"]: float(b["free"])
@@ -114,10 +131,6 @@ def get_binance_balances():
         print(f"❌ Error fetching Binance balances: {str(e)}")
         return {}
 
-    
-
-
-
 def log_order_response(data, status="success"):
     filename = f"logs/order_{status}.csv"
     with open(filename, "a", newline="") as f:
@@ -130,6 +143,5 @@ def log_order_response(data, status="success"):
             data.get("status"),
             data.get("executedQty"),
             data.get("cummulativeQuoteQty"),
-            #str(data.get("fills", []))[:100]
             json.dumps(data.get("fills", []))[:300]
         ])
