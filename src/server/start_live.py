@@ -24,6 +24,32 @@ import uvicorn # type: ignore
 import signal
 import sys
 
+SIGNAL_STATE_FILE = "logs/signal_state.json"
+
+def update_signal_state(sentiment, prediction, market, confidence):
+    signal_data = {
+        "sentiment": sentiment,
+        "prediction": prediction,
+        "market": market,
+        "confidence": confidence,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    with open(SIGNAL_STATE_FILE, "w") as f:
+        json.dump(signal_data, f)
+
+PORTFOLIO_STATE_FILE = "logs/portfolio_state.json"
+
+def update_portfolio_state():
+    portfolio_data = {
+        "BTC": asset_dict["BTCUSDT"].balance,
+        "ETH": asset_dict["ETHUSDT"].balance,
+        "USDT": asset_dict["BTCUSDT"].usdt_balance  # pulled from PortfolioManager
+    }
+    with open(PORTFOLIO_STATE_FILE, "w") as f:
+        json.dump(portfolio_data, f)
+
+
+update_portfolio_state()
 
 # ----------------------------------
 # FASTAPI SETUP
@@ -278,6 +304,13 @@ async def handle_kline_message(symbol: str, candle: dict):
         "prediction": prediction_signal,
     }
 
+    update_signal_state(
+        sentiment=sentiment_signal,
+        prediction=prediction_signal,
+        market=market_signal,
+        confidence=confidence
+    )   
+
     # Get final decision based on agent signals with improved decision maker
     final_decision = decision_maker.decide(signals)
 
@@ -386,6 +419,7 @@ async def handle_kline_message(symbol: str, candle: dict):
         total_trades=trade_count,
         accuracy=accuracy_percentage,
     )
+
 
     # ✅ Save live portfolio snapshot every 5 trades
     if trade_count > 0 and trade_count % 5 == 0:
