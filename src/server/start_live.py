@@ -37,19 +37,6 @@ def update_signal_state(sentiment, prediction, market, confidence):
     with open(SIGNAL_STATE_FILE, "w") as f:
         json.dump(signal_data, f)
 
-PORTFOLIO_STATE_FILE = "logs/portfolio_state.json"
-
-def update_portfolio_state():
-    portfolio_data = {
-        "BTC": asset_dict["BTCUSDT"].balance,
-        "ETH": asset_dict["ETHUSDT"].balance,
-        "USDT": asset_dict["BTCUSDT"].usdt_balance  # pulled from PortfolioManager
-    }
-    with open(PORTFOLIO_STATE_FILE, "w") as f:
-        json.dump(portfolio_data, f)
-
-
-update_portfolio_state()
 
 # ----------------------------------
 # FASTAPI SETUP
@@ -303,13 +290,13 @@ async def handle_kline_message(symbol: str, candle: dict):
         "sentiment": sentiment_signal,
         "prediction": prediction_signal,
     }
-
+    
     update_signal_state(
         sentiment=sentiment_signal,
         prediction=prediction_signal,
         market=market_signal,
         confidence=confidence
-    )   
+    ) 
 
     # Get final decision based on agent signals with improved decision maker
     final_decision = decision_maker.decide(signals)
@@ -445,6 +432,17 @@ if live_mode:
         exit()
 
 
+
+def should_start_trading():
+    try:
+        with open("logs/trading_status.json", "r") as f:
+            data = json.load(f)
+            return data.get("status") == "on"
+    except:
+        return False
+
+
+
 async def run_live_simulation():
     asyncio.create_task(snapshot_task())
 
@@ -534,9 +532,16 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, handle_shutdown)
 
 
-    if live_mode:
-        print("🔴 PortAI is running in LIVE MODE – Real trades will be executed on Binance Mainnet!")
-    else:
-        print("🟡 PortAI is running in SIMULATION mode – No real trades will occur.")
-        
+    trading_status = {}
+    try:
+        with open("logs/trading_status.json", "r") as f:
+            trading_status = json.load(f)
+    except Exception as e:
+        print("⚠️ Could not read trading status:", e)
+
+    if trading_status.get("status") != "on":
+        print("⛔ Trading status is OFF. Not starting.")
+        exit()
+
+    print("✅ Trading status is ON. Starting PortAI...\n")
     asyncio.run(run_live_simulation())
