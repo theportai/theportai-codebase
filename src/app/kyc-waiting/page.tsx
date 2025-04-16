@@ -36,7 +36,7 @@ export default function KYCWaitingPage() {
       // If approved, redirect to dashboard
       if (data.kycStatus === "APPROVED") {
         setTimeout(() => {
-          router.replace("/dashboard");
+          router.replace("/connect-exchange");
         }, 2000);
       }
 

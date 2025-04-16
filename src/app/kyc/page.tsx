@@ -245,7 +245,7 @@ export default function KYCPage() {
 
       console.log("✅ KYC Submitted Successfully!");
 
-      // Show success message for a moment before redirecting
+      
       setTimeout(async () => {
         try {
           const statusResponse = await fetch(`/api/user-status?phone=${encodeURIComponent(phone)}`);
@@ -256,14 +256,13 @@ export default function KYCPage() {
           const statusData = await statusResponse.json();
           if (statusData.kycStatus) {
             console.log("📥 Latest KYC Status:", statusData.kycStatus);
-            router.replace("/dashboard");
+            router.replace("/kyc-waiting");
           } else {
             // Fallback redirect if status not returned properly
-            router.replace("/welcome?kyc=pending");
+            router.replace("/welcome");
           }
         } catch (statusError) {
           console.error("Error checking status:", statusError);
-          // Still redirect to dashboard as KYC is submitted
           router.replace("/dashboard");
         }
       }, 1500);
