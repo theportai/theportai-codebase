@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import hvac # type: ignore
 import os
 import csv
+import certifi
 import requests # type: ignore
 from src.utils.enhance_trade_logging import TradeLogger  
 from src.agents.portfolio_manager import PortfolioManager  
@@ -23,6 +24,10 @@ from src.utils.binance_executor import get_binance_balances
 import uvicorn # type: ignore
 import signal
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+
 
 SIGNAL_STATE_FILE = "logs/signal_state.json"
 
@@ -32,7 +37,10 @@ def update_signal_state(sentiment, prediction, market, confidence):
         "prediction": prediction,
         "market": market,
         "confidence": confidence,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
+        #"timestamp": datetime.utcnow().isoformat()
+        #"timestamp": datetime.now(datetime.UTC).isoformat()
+
     }
     with open(SIGNAL_STATE_FILE, "w") as f:
         json.dump(signal_data, f)
@@ -49,6 +57,7 @@ token_manager = TokenManager()
 # ----------------------------------
 live_mode = True
 
+os.environ['SSL_CERT_FILE'] = certifi.where()
 
 
 @app.get("/health")
@@ -432,7 +441,6 @@ if live_mode:
         exit()
 
 
-
 def should_start_trading():
     try:
         with open("logs/trading_status.json", "r") as f:
@@ -442,16 +450,34 @@ def should_start_trading():
         return False
 
 
+def is_trading_on() -> bool:
+    path = Path("logs/trading_status.json")
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text())
+        return data.get("status") == "on"
+    except:
+        return False
 
 async def run_live_simulation():
     asyncio.create_task(snapshot_task())
 
     try:
         while True:
+            if not is_trading_on():
+                print("🛑 Trading stopped by toggle. Exiting run_live_simulation loop.")
+                break
+
             try:
                 async with websockets.connect(BINANCE_WS_URL) as websocket:
                     print("✅ Connect to Binance Live Multi-Asset Mainnet...")
+
                     async for message in websocket:
+                        if not is_trading_on():
+                            print("🛑 Trading stopped mid-stream. Breaking WebSocket loop.")
+                            break
+
                         try:
                             data = json.loads(message)
 
@@ -489,7 +515,6 @@ async def run_live_simulation():
                 await asyncio.sleep(5)
 
     finally:
-        # ✅ Export Simulation Summary if live_mode is False
         if not live_mode:
             try:
                 sim_summary_path = f"logs/sim_results_{datetime.now().strftime('%Y%m%d')}.csv"
@@ -504,6 +529,22 @@ async def run_live_simulation():
                 print(f"📄 Simulation results exported to: {sim_summary_path}")
             except Exception as e:
                 print(f"⚠️ Failed to export simulation summary: {str(e)}")
+
+        try:
+            portfolio_manager.save_snapshot()
+            portfolio_manager.log_summary()  # 🟢 Ensure this prints the summary log after STOP
+        except Exception as e:
+            print(f"⚠️ Error during final snapshot or log summary: {str(e)}")
+
+
+async def snapshot_task(interval_sec=300):  # every 5 minutes
+    while True:
+        try:
+            portfolio_manager.save_snapshot()
+            print("📸 Portfolio snapshot saved.")
+        except Exception as e:
+            print(f"⚠️ Error saving snapshot: {str(e)}")
+        await asyncio.sleep(interval_sec)
 
 
 async def snapshot_task(interval_sec=300):  # every 5 minutes

@@ -87,10 +87,6 @@ export default function KYCPage() {
             router.replace("/dashboard");
           } else {
 
-            //router.replace("/welcome?kyc=progress"); // ✅ Keep this for pending status
-
-            //router.replace("/welcome?kyc=progress"); (mistakes sala) :(
-            //router.replace("/dasboard"); (mistakes wo bhi spelling mistake shit man dimag kharab hogaya tha sala) :(
               router.replace("/dashboard");
           }
         }

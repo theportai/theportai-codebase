@@ -1,22 +1,29 @@
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
 import path from "path";
+import fs from "fs";
 
 let processRef: any = null;
 
 export async function POST() {
   try {
-    // Use absolute Python path to avoid module resolution issues
-    const pythonPath = "/usr/local/bin/python3";
-    const modulePath = "src.server.start_live"; // Module notation, NOT file path
+    const statusData = JSON.parse(
+      fs.readFileSync("logs/trading_status.json", "utf-8")
+    );
 
-    // If already running, don't start again
+    if (statusData.status !== "on") {
+      console.log("🚫 Trading toggle is OFF. Not starting Python subprocess.");
+      return NextResponse.json({ message: "Not started, toggle is off." });
+    }
+
+    const pythonPath = "/usr/local/bin/python3";
+    const modulePath = "src.server.start_live";
+
     if (processRef) {
       console.log("⏸️ Trading already running. Skipping new start.");
       return NextResponse.json({ message: "Already running" });
     }
 
-    // Launch trading script as a module
     processRef = exec(`${pythonPath} -m ${modulePath}`);
 
     processRef.stdout.on("data", (data) => {
@@ -24,7 +31,7 @@ export async function POST() {
     });
 
     processRef.stderr.on("data", (data) => {
-      console.error("❌ Python Error:", data.toString());
+      console.error("📤 Python STDERR:", data.toString());
     });
 
     processRef.on("exit", (code) => {
