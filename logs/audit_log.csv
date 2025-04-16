@@ -6,3 +6,8 @@ timestamp,event_type,agent,details
 2025-04-03 21:25:08,agent_execution,sentiment_agent,Sentiment agent started with valid token
 2025-04-04 10:29:21,agent_execution,sentiment_agent,Sentiment agent started with valid token
 2025-04-04 19:28:07,agent_execution,sentiment_agent,Sentiment agent started with valid token
+2025-04-06 22:20:48,dashboard_login,sentiment_agent,Streamlit dashboard accessed
+2025-04-06 22:21:47,dashboard_login,sentiment_agent,Streamlit dashboard accessed
+2025-04-06 22:25:09,dashboard_login,sentiment_agent,Streamlit dashboard accessed
+2025-04-06 22:31:22,dashboard_login,sentiment_agent,Streamlit dashboard accessed
+2025-04-10 13:41:11,dashboard_login,sentiment_agent,Streamlit dashboard accessed

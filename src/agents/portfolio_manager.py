@@ -70,6 +70,12 @@ class PortfolioManager:
         
         return None
 
+    def log_summary(self):
+        print("📊 Final Portfolio Summary:")
+        for symbol, asset in self.asset_dict.items():
+            print(f"{symbol} → Balance: {asset.balance:.2f}, PnL: {asset.pnl:.2f}, Trades: {asset.trade_count}, Wins: {asset.win_count}")
+
+
     def calculate_quantity(self, symbol, price, capital_fraction=1.0):
         symbol = symbol.upper()
         asset = self.assets[symbol]

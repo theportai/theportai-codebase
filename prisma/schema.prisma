@@ -23,20 +23,23 @@ enum Role {
 }
 
 model User {
-  id          String   @id @default(uuid())
-  phone       String   @unique
-  email       String?  @unique
-  fullName    String?
-  pan         String?
-  aadhaar     String?
-  documentUrl String?
-  provider    String    @default("mobile")
-  kycStatus   KYCStatus @default(PENDING)
-  role        Role      @default(USER)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  isVerified  Boolean   @default(false)
+  id                String   @id @default(uuid())
+  phone             String   @unique
+  email             String?  @unique
+  fullName          String?
+  pan               String?
+  aadhaar           String?
+  documentUrl       String?
+  panDocumentUrl    String?
+  aadhaarDocumentUrl String?
+  provider          String    @default("mobile")
+  kycStatus         KYCStatus @default(PENDING)
+  role              Role      @default(USER)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  isVerified        Boolean   @default(false)
 }
+
 
 
 model OtpRequest {
