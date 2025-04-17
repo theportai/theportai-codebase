@@ -1,82 +1,194 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 
-export default function Dashboard() {
-  const router = useRouter();
-  const [kycStatus, setKycStatus] = useState<string | null>(null);
-  
-  
+import { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Play, StopCircle } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
+export default function DashboardPage() {
+
+  const [aiRunning, setAiRunning] = useState(false);
+
   useEffect(() => {
-    let isMounted = true; // ✅ Prevent state update on unmounted component
-  
-    async function fetchKYCStatus() {
-      const phone = localStorage.getItem("userPhone");
-      
-      // ✅ Check if phone number is missing
-      if (!phone) {
-        console.error("❌ No phone number found in localStorage.");
-        return; // 🔴 Stop execution if phone number is missing
-      }
-  
+    const fetchStatus = async () => {
       try {
-        console.log(`🔍 Fetching KYC status for phone: ${phone}`);
-        const response = await fetch(`/api/user-status?phone=${phone}`, { cache: "no-store" });
-        const data = await response.json();
-        console.log("📥 API Response:", data);
-  
-        if (!isMounted) return; // ✅ Prevent updates if component is unmounted
-  
-        if (response.ok && data.kycStatus) {
-          setKycStatus(data.kycStatus);
-  
-          // ✅ Redirect based on KYC status
-          if (data.kycStatus === "APPROVED") {
-            setTimeout(() => router.push("/dashboard"), 1000);
-          } else if (data.kycStatus === "REJECTED") {
-            setTimeout(() => router.push("/kyc"), 1000);
-          }
-        } else {
-          console.error("❌ Error fetching KYC status:", data.error);
-        }
-      } catch (error) {
-        console.error("❌ Failed to fetch KYC status:", error);
+        const res = await fetch("/api/trading-toggle");
+        const data = await res.json();
+        setAiRunning(data.status === "on");
+      } catch (err) {
+        console.error("❌ Failed to fetch trading status:", err);
       }
-    }
-  
-    // ✅ Only check KYC status if phone is present
-    if (localStorage.getItem("userPhone")) {
-      fetchKYCStatus();
-    }
-  
-    return () => {
-      isMounted = false;
     };
-  }, [kycStatus, router]);
+    fetchStatus();
+  }, []);
+
+
+  const [signals, setSignals] = useState({
+    sentiment: "HOLD",
+    prediction: "HOLD",
+    market: "HOLD",
+    confidence: 0,
+  });
+  const [portfolio, setPortfolio] = useState({ BTC: 0, ETH: 0, USDT: 0 });
+  const [tradeLog, setTradeLog] = useState([]);
+
+  useEffect(() => {
+    const fetchSignals = async () => {
+      try {
+        const res = await fetch("/api/ai-status");
+        const data = await res.json();
+        setSignals({
+          sentiment: data.sentiment?.toUpperCase() || "N/A",
+          prediction: data.prediction?.toUpperCase() || "N/A",
+          market: data.market?.toUpperCase() || "N/A",
+          confidence: data.confidence || 0,
+        });
+      } catch (err) {
+        console.error("Error fetching signals:", err);
+      }
+    };
+
+    const fetchPortfolio = async () => {
+      try {
+        const res = await fetch("/api/portfolio-status");
+        const data = await res.json();
+        setPortfolio({ BTC: data.BTC || 0, ETH: data.ETH || 0, USDT: data.USDT || 0 });
+      } catch (err) {
+        console.error("Error fetching portfolio:", err);
+      }
+    };
+
+    const fetchTrades = async () => {
+      try {
+        const res = await fetch("/api/trade-log");
+        const data = await res.json();
+        setTradeLog(data);
+      } catch (err) {
+        console.error("Error fetching trade log:", err);
+      }
+    };
+
+    fetchSignals();
+    fetchPortfolio();
+    fetchTrades();
+    const interval = setInterval(() => {
+      fetchSignals();
+      fetchPortfolio();
+      fetchTrades();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-6">
-      {kycStatus === "PENDING" ? (
-        <div className="w-full max-w-lg bg-gray-800 p-6 rounded-lg text-center">
-          <h1 className="text-2xl font-bold mb-3">KYC in Progress 🚀</h1>
-          <p className="text-gray-400">Your KYC verification is in progress.</p>
-        </div>
-      ) : kycStatus === "APPROVED" ? (
-        <div className="w-full max-w-lg bg-gray-800 p-6 rounded-lg text-center">
-          <h1 className="text-2xl font-bold mb-3">Welcome to AI Invest Pro! 🚀</h1>
-          <p className="text-gray-400">Start investing in AI-powered trading now.</p>
-          <button onClick={() => router.push("/invest")} className="bg-blue-600 px-6 py-3 rounded-lg mt-4">
-            Start Investing
-          </button>
-        </div>
-      ) : (
-        <div className="w-full max-w-lg bg-gray-800 p-6 rounded-lg text-center">
-          <h1 className="text-2xl font-bold mb-3 text-red-500">KYC Rejected ❌</h1>
-          <button onClick={() => router.push("/kyc")} className="bg-yellow-500 px-6 py-3 rounded-lg mt-4">
-            Retry KYC
-          </button>
-        </div>
-      )}
-    </div>
+    <main className="p-6">
+      <h1 className="text-3xl font-bold mb-6">PortAI Dashboard</h1>
+
+      <section className="grid grid-cols-3 gap-4 mb-6">
+        {Object.entries(signals).map(([label, value]) => (
+          <Card key={label}>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">{label.toUpperCase()}</p>
+              <p className="text-xl font-bold text-blue-600">{value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      <section className="grid grid-cols-3 gap-4 mb-6">
+        {Object.entries(portfolio).map(([symbol, balance]) => (
+          <Card key={symbol}>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">{symbol}</p>
+              <p className="text-xl font-bold">${balance.toFixed(2)}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      <section className="mb-6">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground mb-2">Real-Time Trade Log</p>
+            <div className="overflow-x-auto max-h-64">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left">
+                    <th>Time</th>
+                    <th>Symbol</th>
+                    <th>Side</th>
+                    <th>Price</th>
+                    <th>Qty</th>
+                    <th>Conf</th>
+                    <th>Mode</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tradeLog.map((trade: any, i) => (
+                    <tr key={i} className="border-t">
+                      <td>{trade.timestamp}</td>
+                      <td>{trade.symbol}</td>
+                      <td>{trade.side}</td>
+                      <td>${parseFloat(trade.price).toFixed(2)}</td>
+                      <td>{trade.qty}</td>
+                      <td>{trade.confidence}</td>
+                      <td>{trade.mode}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <div className="text-right">
+        <Button
+          onClick={async () => {
+            try {
+              const newStatus = aiRunning ? "off" : "on";
+
+              // Step 1: Write to /api/trading-toggle
+              const res = await fetch("/api/trading-toggle", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus }),
+              });
+
+              const result = await res.json();
+              console.log("🛰️ API Response:", result);
+
+              // Step 2: Update button state
+              setAiRunning(newStatus === "on");
+
+              // Step 3: Trigger /api/start-trading if status is ON
+              if (newStatus === "on") {
+                await fetch("/api/start-trading", { method: "POST" });
+                console.log("🚀 Trading launched from UI!");
+              }
+            } catch (err) {
+              console.error("❌ Failed to toggle trading:", err);
+            }
+          }}
+        >
+          {aiRunning ? (
+            <>
+              <StopCircle className="mr-2" /> Stop AI Trading
+            </>
+          ) : (
+            <>
+              <Play className="mr-2" /> Start AI Trading
+            </>
+          )}
+        </Button>
+      </div>
+    </main>
   );
 }

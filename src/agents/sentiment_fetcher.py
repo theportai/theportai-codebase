@@ -12,14 +12,20 @@ from pathlib import Path
 from src.core.vault import Vault
 from src.core.token_manager import TokenManager
 from src.utils.audit_logger import log_event
+from datetime import datetime, timezone
 
 
-# Initialize the Vault
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
 vault = Vault()
 load_dotenv()
 
 token_manager = TokenManager()
-
 
 # Retrieve API keys from Vault
 NEWS_API_KEY = vault.get_key("NEWS_API_KEY", caller="sentiment_agent")
@@ -30,6 +36,12 @@ REDDIT_USER_AGENT = vault.get_key("REDDIT_USER_AGENT", caller="sentiment_agent")
 # Suppress SSL warnings as a workaround for certificate issues
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Set NLTK_DATA environment variable if the data directory exists
+nltk_data_path = os.path.expanduser("~/nltk_data")
+if os.path.exists(nltk_data_path):
+    os.environ['NLTK_DATA'] = nltk_data_path
+
+# Download with SSL verification disabled
 nltk.download("vader_lexicon", quiet=True)
 
 # 🧠 Init analyzer
@@ -172,7 +184,7 @@ def get_reddit_sentiment_alt():
 def log_sentiment_to_csv(scores):
     SENTIMENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = ["timestamp", "news", "twitter", "reddit", "final_score"]
-    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")  # Fixed deprecated utcnow
 
     write_header = not SENTIMENT_LOG_PATH.exists()
 
