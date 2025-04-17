@@ -27,7 +27,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid phone number. Must be 10 digits." }, { status: 400 });     
     }      
     
-    if (type === "send") return await handleSendOTP(phone);     
+    if (type === "send") {
+      // 🧪 DEV BYPASS — Skip Twilio for test number
+      if (phone === "9999999999") {
+        console.log("🧪 Dev Mode OTP Bypass Triggered!");
+        
+        // Ensure test user is in the DB with all required fields
+        await prisma.user.upsert({
+          where: { phone },
+          update: {},
+          create: { 
+            phone, 
+            isVerified: false,
+            kycStatus: "NOT_STARTED",
+            exchangeConnected: false
+          },
+        });
+        
+        return NextResponse.json({ message: "OTP bypassed in dev mode!" });
+      }
+      
+      return await handleSendOTP(phone);
+    }
+    
     if (type === "verify") {       
       if (!otp) return NextResponse.json({ error: "OTP is required for verification." }, { status: 400 });       
       return await handleVerifyOTP(phone, otp);     
@@ -76,13 +98,19 @@ async function handleSendOTP(phone: string) {
   return NextResponse.json({ message: "OTP sent successfully!" }); 
 }  
 
-async function handleVerifyOTP(phone: string, otp: string) {   
-  const verification = await client.verify.v2.services(twilioServiceId!)
-    .verificationChecks.create({ to: `+91${phone}`, code: otp });    
-  
-  if (verification.status !== "approved") {     
-    return NextResponse.json({ error: "Invalid OTP. Please try again." }, { status: 401 });   
-  }    
+async function handleVerifyOTP(phone: string, otp: string) {
+  // 🧪 DEV BYPASS — Auto-approve verification for test number  
+  if (phone === "9999999999") {
+    console.log("🧪 Dev Mode Verification Bypass Triggered!");
+  } else {
+    const verification = await client.verify.v2.services(twilioServiceId!)
+      .verificationChecks.create({ to: `+91${phone}`, code: otp });
+      
+    if (verification.status !== "approved") {
+      console.error("❌ OTP Verification Failed:", verification.status);
+      return NextResponse.json({ error: "Invalid OTP. Please try again." }, { status: 401 });
+    }
+  }
   
   // Update user to verified
   await prisma.user.update({ 
