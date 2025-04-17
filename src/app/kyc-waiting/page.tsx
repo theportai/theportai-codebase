@@ -12,6 +12,7 @@ export default function KYCWaitingPage() {
   const [showAnimation, setShowAnimation] = useState(false);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [error, setError] = useState("");
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Fetch KYC status
   const checkStatus = async () => {
@@ -20,22 +21,38 @@ export default function KYCWaitingPage() {
       
       const phone = localStorage.getItem("userPhone");
       if (!phone) {
-        router.replace("/login?redirect=kyc-waiting");
+        console.log("No phone found in localStorage, redirecting to signup");
+        router.replace("/signup");
         return;
       }
 
-      const response = await fetch(`/api/user-status?phone=${encodeURIComponent(phone)}`);
+      console.log("Checking status for phone:", phone);
+      const response = await fetch(`/api/user-status?phone=${encodeURIComponent(phone)}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache"
+        }
+      });
       
       if (!response.ok) {
-        throw new Error("Failed to fetch status");
+        console.error("API error:", response.status, response.statusText);
+        throw new Error(`Failed to fetch status: ${response.status}`);
       }
 
       const data = await response.json();
-      setStatus(data.kycStatus || "PENDING");
+      console.log("Status response:", data);
+      
+      const newStatus = data.kycStatus || "PENDING";
+      setStatus(newStatus);
 
-      // If approved, redirect to dashboard
-      if (data.kycStatus === "APPROVED") {
+      // If approved, redirect to connect-exchange
+      if (newStatus === "APPROVED" && !isRedirecting) {
+        console.log("Status is APPROVED, preparing to redirect...");
+        setIsRedirecting(true);
+        
+        // Show approved state briefly before redirecting
         setTimeout(() => {
+          console.log("Redirecting to connect-exchange...");
           router.replace("/connect-exchange");
         }, 2000);
       }
@@ -52,40 +69,58 @@ export default function KYCWaitingPage() {
     // Check auth status
     const phone = localStorage.getItem("userPhone");
     if (!phone) {
+      console.log("No phone in localStorage on initial load, redirecting to login");
       router.replace("/login?redirect=kyc-waiting");
       return;
     }
 
-    // Trigger entrance animation
-    setTimeout(() => {
-      setShowAnimation(true);
-    }, 100);
+    // Clean up function reference for interval clearing
+    let statusInterval;
+    let timeInterval;
 
-    // Initial status check
-    checkStatus();
+    // Function to initialize everything
+    const initialize = () => {
+      // Trigger entrance animation
+      setTimeout(() => {
+        setShowAnimation(true);
+      }, 100);
 
-    // Set up polling every 30 seconds
-    const statusInterval = setInterval(() => {
+      // Initial status check
       checkStatus();
-      setTimeElapsed(prev => prev + 30);
-    }, 30000);
 
-    // Update elapsed time counter every second
-    const timeInterval = setInterval(() => {
-      setTimeElapsed(prev => prev + 1);
-    }, 1000);
+      // Set up polling every 15 seconds (reduced from 30 for faster response)
+      statusInterval = setInterval(() => {
+        if (!isRedirecting) {
+          checkStatus();
+          setTimeElapsed(prev => prev + 15);
+        }
+      }, 15000);
 
+      // Update elapsed time counter every second
+      timeInterval = setInterval(() => {
+        setTimeElapsed(prev => prev + 1);
+      }, 1000);
+    };
+
+    initialize();
+
+    // Cleanup function
     return () => {
       clearInterval(statusInterval);
       clearInterval(timeInterval);
     };
-  }, [router]);
+  }, [router, isRedirecting]);
 
   // Format elapsed time
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  // Force refresh status
+  const handleRefresh = () => {
+    checkStatus();
   };
 
   return (
@@ -172,7 +207,9 @@ export default function KYCWaitingPage() {
           {/* Status Description */}
           <p className="text-center text-gray-300 mb-6">
             {status === "APPROVED" ? (
-              "Your KYC has been approved. Redirecting you to the dashboard..."
+              isRedirecting ? 
+                "Your KYC has been approved. Redirecting you now..." :
+                "Your KYC has been approved. You'll be redirected to connect your exchange..."
             ) : status === "REJECTED" ? (
               "Unfortunately, your KYC verification was rejected. Please contact support for more information."
             ) : (
@@ -189,7 +226,7 @@ export default function KYCWaitingPage() {
               </div>
               <div className="flex justify-between mb-2">
                 <span className="text-gray-400">Time Elapsed:</span>
-                <span className="font-medium">{formatTime(timeElapsed)} minutes</span>
+                <span className="font-medium">{formatTime(timeElapsed)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Estimated Time:</span>
@@ -210,7 +247,7 @@ export default function KYCWaitingPage() {
           <div className="flex justify-center mt-4">
             {status === "PENDING" && (
               <button
-                onClick={() => checkStatus()}
+                onClick={handleRefresh}
                 disabled={isLoading}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -224,10 +261,21 @@ export default function KYCWaitingPage() {
             )}
             {status === "REJECTED" && (
               <button
-                onClick={() => router.push("/kyc")}
+                onClick={() => router.push("/welcome")}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 transition-all focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 Try Again
+              </button>
+            )}
+            {status === "APPROVED" && !isRedirecting && (
+              <button
+                onClick={() => {
+                  setIsRedirecting(true);
+                  router.replace("/connect-exchange");
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 transition-all focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                Continue to Exchange Setup &rarr;
               </button>
             )}
           </div>
