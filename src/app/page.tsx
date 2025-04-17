@@ -1,19 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   FiLock,
-  FiBriefcase,
   FiTrendingUp,
   FiDollarSign,
-  FiPhone,
-  FiMail,
-  FiGithub,
-  FiTwitter,
-  FiLinkedin,
-  FiChevronDown
+  FiChevronDown,
+  FiCheck,
+  FiAlertCircle
 } from "react-icons/fi";
 
 // Animation variants
@@ -26,13 +21,21 @@ const fadeIn = {
   }
 };
 
-export default function HomePage() {
-  const router = useRouter();
+export default function WaitlistPage() {
   const [scrollY, setScrollY] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [, setRandomBars] = useState<{ height: number; color: string }[]>([]);
   const [mounted, setMounted] = useState(false);
-
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: ""
+  });
+  const [formStatus, setFormStatus] = useState({
+    isSubmitting: false,
+    isSuccess: false,
+    isError: false,
+    message: ""
+  });
 
   // Track scroll position for navbar effects
   useEffect(() => {
@@ -48,51 +51,61 @@ export default function HomePage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [mounted]);
 
-
-
-
-  useEffect(() => {
-    const bars = Array.from({ length: 30 }).map(() => ({
-      height: Math.floor(Math.random() * 20) + 4, // Height between 4 and 24
-      color: Math.random() > 0.5 ? "bg-green-500" : "bg-red-500",
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value
     }));
-    setRandomBars(bars);
-  }, []);
+  };
 
-  // Stats with counter animation
-  const stats = [
-    { label: "Avg Annual Returns", value: "87%", icon: <FiTrendingUp /> },
-    { label: "Automated Trading", value: "24/7", icon: <FiBriefcase /> },
-    { label: "Active Users", value: "12,500+", icon: <FiPhone /> },
-    { label: "Trading Volume", value: "$142M+", icon: <FiDollarSign /> }
-  ];
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Reset any previous form status
+    setFormStatus({ 
+      isSubmitting: true, 
+      isError: false, 
+      isSuccess: false, 
+      message: "" 
+    });
 
-  // Features data
-  const features = [
-    {
-      title: "Sign Up & Connect",
-      description: "Securely link your exchange account with military-grade encryption.",
-      icon: <FiLock className="text-blue-500 text-2xl mb-4" />
-    },
-    {
-      title: "AI Analysis",
-      description: "Our AI-driven algorithms provide automated trading & real-time insights.",
-      icon: <FiBriefcase className="text-blue-500 text-2xl mb-4" />
-    },
-    {
-      title: "Grow & Optimize",
-      description: "Machine learning powers personalized growth strategies for your portfolio.",
-      icon: <FiTrendingUp className="text-blue-500 text-2xl mb-4" />
-    },
-    {
-      title: "Withdraw Anytime",
-      description: "Profits go directly to your account with no withdrawal fees or delays.",
-      icon: <FiDollarSign className="text-blue-500 text-2xl mb-4" />
+    try {
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Something went wrong");
+      }
+
+      setFormStatus({
+        isSubmitting: false,
+        isSuccess: true,
+        isError: false,
+        message: data.message || "You've been added to the waitlist!"
+      });
+      
+      // Reset form after successful submission
+      setFormData({ name: "", email: "", phone: "" });
+      
+    } catch (error) {
+      console.error("Form submission error:", error);
+      setFormStatus({
+        isSubmitting: false,
+        isSuccess: false,
+        isError: true,
+        message: error.message || "Failed to join waitlist. Please try again."
+      });
     }
-  ];
+  };
 
-
-  
   if (!mounted) return null; // Prevent SSR issues
 
   return (
@@ -111,20 +124,9 @@ export default function HomePage() {
               <div className="flex items-center space-x-8">
                 <a href="#features" className="hover:text-blue-400 transition-colors text-sm font-medium">Features</a>
                 <a href="#how-it-works" className="hover:text-blue-400 transition-colors text-sm font-medium">How It Works</a>
-                <a href="#pricing" className="hover:text-blue-400 transition-colors text-sm font-medium">Pricing</a>
-                <a href="#support" className="hover:text-blue-400 transition-colors text-sm font-medium">Support</a>
-                <button
-                  onClick={() => router.push("/login")}
-                  className="px-4 py-2 rounded-lg border border-gray-600 hover:border-blue-500 transition-colors"
-                >
-                  Log In
-                </button>
-                <button
-                  onClick={() => router.push("/signup")}
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors"
-                >
-                  Sign Up
-                </button>
+                <a href="#waitlist" className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors">
+                  Join Waitlist
+                </a>
               </div>
             </div>
 
@@ -152,20 +154,9 @@ export default function HomePage() {
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               <a href="#features" className="block px-3 py-2 hover:bg-gray-700 rounded-md">Features</a>
               <a href="#how-it-works" className="block px-3 py-2 hover:bg-gray-700 rounded-md">How It Works</a>
-              <a href="#pricing" className="block px-3 py-2 hover:bg-gray-700 rounded-md">Pricing</a>
-              <a href="#support" className="block px-3 py-2 hover:bg-gray-700 rounded-md">Support</a>
-              <button
-                onClick={() => router.push("/login")}
-                className="block w-full text-left px-3 py-2 hover:bg-gray-700 rounded-md"
-              >
-                Log In
-              </button>
-              <button
-                onClick={() => router.push("/signup")}
-                className="block w-full text-left px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-md mt-2"
-              >
-                Sign Up
-              </button>
+              <a href="#waitlist" className="block px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-md mt-2">
+                Join Waitlist
+              </a>
             </div>
           </div>
         )}
@@ -195,13 +186,28 @@ export default function HomePage() {
                 Harness the power of AI to revolutionize your trading strategy. Our platform identifies opportunities, executes trades, and optimizes performance—all automatically.
               </p>
 
-              <div className="mt-10 flex flex-col items-center sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                <button
-                  className="bg-blue-500 text-white px-6 py-3 rounded-lg font-bold text-lg"
-                  onClick={() => router.push("/signup")}
+              <div className="mt-8">
+                <div className="flex items-center space-x-2 mb-2">
+                  <FiCheck className="text-green-500" />
+                  <span className="text-gray-300">AI-powered market analysis</span>
+                </div>
+                <div className="flex items-center space-x-2 mb-2">
+                  <FiCheck className="text-green-500" />
+                  <span className="text-gray-300">Automated trading strategies</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <FiCheck className="text-green-500" />
+                  <span className="text-gray-300">24/7 portfolio optimization</span>
+                </div>
+              </div>
+
+              <div className="mt-8">
+                <a 
+                  href="#waitlist" 
+                  className="bg-blue-500 text-white px-6 py-3 rounded-lg font-bold text-lg inline-block hover:bg-blue-600 transition-colors"
                 >
-                  Sign Up for Free
-                </button>
+                  Join the Waitlist
+                </a>
               </div>
             </motion.div>
 
@@ -233,7 +239,7 @@ export default function HomePage() {
                         </div>
                       </div>
                       <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                        <div className="text-gray-400 text-sm mb-1">Todays P/L</div>
+                        <div className="text-gray-400 text-sm mb-1">Today's P/L</div>
                         <div className="text-xl font-bold text-white">+$843.21</div>
                         <div className="text-green-500 text-sm flex items-center mt-1">
                           +3.17% <FiTrendingUp className="ml-1" />
@@ -245,48 +251,13 @@ export default function HomePage() {
                         <div className="text-sm font-medium text-gray-400">Performance</div>
                         <div className="text-xs text-gray-500">Last 30 Days</div>
                       </div>
-
-
                       <div className="h-24 flex items-end space-x-1">
                         {[...Array(30)].map((_, i) => (
-
                           <div
                             key={i}
-                            className={`w-full h-${Math.floor(Math.random() * 20) + 4} ${Math.random() > 0.5 ? 'bg-green-500' : 'bg-red-500'
-                              } rounded-sm`}
+                            className={`w-full ${i % 2 === 0 ? 'h-16' : 'h-8'} ${i % 3 === 0 ? 'bg-green-500' : 'bg-red-500'} rounded-sm`}
                           ></div>
-
                         ))}
-                      </div>
-
-
-
-
-                    </div>
-                    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                      <div className="text-sm font-medium text-gray-400 mb-3">Recent Trades</div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center text-xs">
-                          <div className="flex items-center">
-                            <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                            <span>AAPL</span>
-                          </div>
-                          <div>+$124.50</div>
-                        </div>
-                        <div className="flex justify-between items-center text-xs">
-                          <div className="flex items-center">
-                            <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-                            <span>TSLA</span>
-                          </div>
-                          <div>-$73.20</div>
-                        </div>
-                        <div className="flex justify-between items-center text-xs">
-                          <div className="flex items-center">
-                            <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                            <span>MSFT</span>
-                          </div>
-                          <div>+$215.75</div>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -307,171 +278,237 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-20 bg-gray-800">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8
-                ">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold mb-8">Our Stats</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {stats.map((stat, index) => (
-                <motion.div
-                  key={index}
-                  className="flex flex-col items-center p-6 bg-gray-900 rounded-lg shadow-lg"
-                  initial="hidden"
-                  animate="visible"
-                  variants={fadeIn}
-                >
-                  <div className="text-blue-500 text-3xl mb-2">{stat.icon}</div>
-                  <div className="text-xl font-semibold">{stat.value}</div>
-                  <div className="text-gray-400">{stat.label}</div>
-                </motion.div>
-              ))}
-            </div>
+      {/* Features Section - Simplified */}
+      <section id="features" className="py-20 bg-gray-800">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Why Choose PortAI</h2>
+            <p className="text-gray-400 max-w-lg mx-auto">Our AI-powered platform gives you the edge in today's competitive markets</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <motion.div
+              className="p-6 bg-gray-900 rounded-lg shadow-lg"
+              initial="hidden"
+              animate="visible"
+              variants={fadeIn}
+            >
+              <FiLock className="text-blue-500 text-2xl mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Secure & Reliable</h3>
+              <p className="text-gray-400">Bank-level security with military-grade encryption protecting your assets and data</p>
+            </motion.div>
+            <motion.div
+              className="p-6 bg-gray-900 rounded-lg shadow-lg"
+              initial="hidden"
+              animate="visible"
+              variants={fadeIn}
+            >
+              <FiTrendingUp className="text-blue-500 text-2xl mb-4" />
+              <h3 className="text-xl font-semibold mb-2">AI-Powered Analysis</h3>
+              <p className="text-gray-400">Advanced algorithms that analyze markets 24/7 to identify the most profitable opportunities</p>
+            </motion.div>
+            <motion.div
+              className="p-6 bg-gray-900 rounded-lg shadow-lg"
+              initial="hidden"
+              animate="visible"
+              variants={fadeIn}
+            >
+              <FiDollarSign className="text-blue-500 text-2xl mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Proven Results</h3>
+              <p className="text-gray-400">Our strategies have delivered 87% average annual returns for our early beta testers</p>
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 bg-gray-900">
+      {/* How It Works - Very Simplified */}
+      <section id="how-it-works" className="py-20 bg-gray-900">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Features</h2>
-            <p className="text-gray-400 max-w-lg mx-auto">Discover the powerful features that make PortAI the ultimate trading companion.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <motion.div
-                key={index}
-                className="p-6 bg-gray-800 rounded-lg shadow-lg text-center"
-                initial="hidden"
-                animate="visible"
-                variants={fadeIn}
-              >
-                {feature.icon}
-                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                <p className="text-gray-400">{feature.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 bg-gray-800">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">How It Works</h2>
-            <p className="text-gray-400 max-w-lg mx-auto">Learn how PortAI simplifies and enhances your trading experience.</p>
+            <p className="text-gray-400 max-w-lg mx-auto">Simple. Efficient. Powerful.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="flex flex-col md:flex-row justify-center items-center space-y-8 md:space-y-0 md:space-x-12">
             <motion.div
-              className="p-6 bg-gray-900 rounded-lg shadow-lg text-center"
+              className="flex flex-col items-center"
               initial="hidden"
               animate="visible"
               variants={fadeIn}
             >
-              <FiLock className="text-blue-500 text-3xl mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Secure Sign-Up</h3>
-              <p className="text-gray-400">Create an account with secure encryption.</p>
+              <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-2xl font-bold mb-4">1</div>
+              <h3 className="text-xl font-semibold mb-2">Sign Up</h3>
+              <p className="text-gray-400 text-center max-w-xs">Join our waitlist to be among the first to experience PortAI</p>
             </motion.div>
             <motion.div
-              className="p-6 bg-gray-900 rounded-lg shadow-lg text-center"
+              className="flex flex-col items-center"
               initial="hidden"
               animate="visible"
               variants={fadeIn}
             >
-              <FiBriefcase className="text-blue-500 text-3xl mb-4" />
-              <h3 className="text-xl font-semibold mb-2">AI Analysis</h3>
-              <p className="text-gray-400">Get real-time insights and automated trading.</p>
+              <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-2xl font-bold mb-4">2</div>
+              <h3 className="text-xl font-semibold mb-2">Connect</h3>
+              <p className="text-gray-400 text-center max-w-xs">Link your exchange account when we launch</p>
             </motion.div>
             <motion.div
-              className="p-6 bg-gray-900 rounded-lg shadow-lg text-center"
+              className="flex flex-col items-center"
               initial="hidden"
               animate="visible"
               variants={fadeIn}
             >
-              <FiTrendingUp className="text-blue-500 text-3xl mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Growth Strategies</h3>
-              <p className="text-gray-400">Personalized strategies for portfolio growth.</p>
+              <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-2xl font-bold mb-4">3</div>
+              <h3 className="text-xl font-semibold mb-2">Profit</h3>
+              <p className="text-gray-400 text-center max-w-xs">Let our AI do the work while you enjoy the returns</p>
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-gray-900">
+      {/* Waitlist Section */}
+      <section id="waitlist" className="py-20 bg-gradient-to-b from-gray-800 to-gray-900">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Pricing Plans</h2>
-            <p className="text-gray-400 max-w-lg mx-auto">Choose the plan that fits your trading needs.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="p-6 bg-gray-800 rounded-lg shadow-lg text-center">
-              <h3 className="text-xl font-semibold mb-2">Basic</h3>
-              <p className="text-gray-400 mb-4">For beginners looking to start.</p>
-              <div className="text-3xl font-bold mb-4">Free</div>
-              <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg">Get Started</button>
-            </div>
-            <div className="p-6 bg-gray-800 rounded-lg shadow-lg text-center">
-              <h3 className="text-xl font-semibold mb-2">Pro</h3>
-              <p className="text-gray-400 mb-4">For experienced traders.</p>
-              <div className="text-3xl font-bold mb-4">$19.99/month</div>
-              <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg">Get Started</button>
-            </div>
-            <div className="p-6 bg-gray-800 rounded-lg shadow-lg text-center">
-              <h3 className="text-xl font-semibold mb-2">Enterprise</h3>
-              <p className="text-gray-400 mb-4">For institutions and large teams.</p>
-              <div className="text-3xl font-bold mb-4">Contact Us</div>
-              <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg">Get Started</button>
-            </div>
+          <div className="max-w-3xl mx-auto">
+            <motion.div
+              className="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden p-8"
+              initial="hidden"
+              animate="visible"
+              variants={fadeIn}
+            >
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold mb-4">Join the Waitlist</h2>
+                <p className="text-gray-400">Be among the first to experience the future of AI-powered trading</p>
+              </div>
+              
+              {formStatus.isSuccess ? (
+                <div className="bg-green-500/20 border border-green-500 rounded-lg p-4 text-center">
+                  <FiCheck className="mx-auto text-green-500 text-2xl mb-2" />
+                  <p className="text-green-500 font-medium">{formStatus.message}</p>
+                  <p className="text-gray-300 mt-2">We'll notify you when PortAI is ready to launch.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit}>
+                  {formStatus.isError && (
+                    <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 mb-6">
+                      <div className="flex items-center">
+                        <FiAlertCircle className="text-red-500 mr-2" />
+                        <p className="text-red-500">{formStatus.message}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="mb-4">
+                    <label htmlFor="name" className="block text-gray-400 mb-2">Full Name</label>
+                    <input
+                      type="text"
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="John Doe"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label htmlFor="email" className="block text-gray-400 mb-2">Email Address</label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="you@example.com"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="mb-6">
+                    <label htmlFor="phone" className="block text-gray-400 mb-2">Phone Number</label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="+1 (555) 123-4567"
+                      required
+                    />
+                  </div>
+                  
+                  <button
+                    type="submit"
+                    disabled={formStatus.isSubmitting}
+                    className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors ${formStatus.isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  >
+                    {formStatus.isSubmitting ? 'Submitting...' : 'Join the Waitlist'}
+                  </button>
+                  
+                  <p className="text-gray-500 text-sm mt-4 text-center">
+                    By joining, you agree to receive updates about PortAI. We respect your privacy and will never share your information.
+                  </p>
+                </form>
+              )}
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Support Section */}
-      <section id="support" className="py-20 bg-gray-800">
+      {/* Social Proof */}
+      <section className="py-20 bg-gray-900">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Support</h2>
-            <p className="text-gray-400 max-w-lg mx-auto">Need help? Our support team is here for you.</p>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Built for Serious Traders</h2>
+            <p className="text-gray-400 max-w-lg mx-auto">Join thousands of professional traders who are already on our waitlist</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="p-6 bg-gray-900 rounded-lg shadow-lg text-center">
-              <FiMail className="text-blue-500 text-3xl mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Email Support</h3>
-              <p className="text-gray-400">Contact us via email for assistance.</p>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+              <div className="flex items-center mb-4">
+                <div className="h-12 w-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xl">JD</div>
+                <div className="ml-4">
+                  <h4 className="text-lg font-semibold">John D.</h4>
+                  <p className="text-gray-400 text-sm">Hedge Fund Manager</p>
+                </div>
+              </div>
+              <p className="text-gray-300">"Can't wait to integrate this AI-powered tool into our trading stack. The demo looks promising."</p>
             </div>
-            <div className="p-6 bg-gray-900 rounded-lg shadow-lg text-center">
-              <FiPhone className="text-blue-500 text-3xl mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Phone Support</h3>
-              <p className="text-gray-400">Call our support line for immediate help.</p>
+            
+            <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+              <div className="flex items-center mb-4">
+                <div className="h-12 w-12 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-xl">AT</div>
+                <div className="ml-4">
+                  <h4 className="text-lg font-semibold">Alice T.</h4>
+                  <p className="text-gray-400 text-sm">Day Trader</p>
+                </div>
+              </div>
+              <p className="text-gray-300">"The automated analysis feature could be a game-changer for identifying opportunities faster than the competition."</p>
             </div>
-            <div className="p-6 bg-gray-900 rounded-lg shadow-lg text-center">
-              <FiGithub className="text-blue-500 text-3xl mb-4" />
-              <h3 className="text-xl font-semibold mb-2">GitHub Issues</h3>
-              <p className="text-gray-400">Report bugs or request features on GitHub.</p>
+            
+            <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+              <div className="flex items-center mb-4">
+                <div className="h-12 w-12 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-xl">MR</div>
+                <div className="ml-4">
+                  <h4 className="text-lg font-semibold">Michael R.</h4>
+                  <p className="text-gray-400 text-sm">Institutional Investor</p>
+                </div>
+              </div>
+              <p className="text-gray-300">"Looking forward to seeing how PortAI's machine learning models can adapt to volatile market conditions."</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-8 bg-gray-900">
+      <footer className="py-8 bg-gray-900 border-t border-gray-800">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between">
             <div className="text-gray-400 text-sm">
               © {new Date().getFullYear()} PortAI. All rights reserved.
             </div>
-            <div className="flex space-x-4 mt-4 md:mt-0">
-              <a href="#" className="text-gray-400 hover:text-blue-400">
-                <FiTwitter className="text-xl" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-blue-400">
-                <FiLinkedin className="text-xl" />
-              </a>
-              <a href="#" className="text-gray-400 hover:text-blue-400">
-                <FiGithub className="text-xl" />
+            <div className="mt-4 md:mt-0">
+              <a href="#waitlist" className="text-blue-400 hover:text-blue-300 transition-colors">
+                Join the Waitlist
               </a>
             </div>
           </div>
@@ -480,7 +517,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-
-
-// Date : 16th March (Created feature/week1-market-analysis)
