@@ -1,3 +1,4 @@
+import { FiTrendingUp } from 'react-icons/fi'
 import React from 'react';
 
 const DashboardPreview = () => {
