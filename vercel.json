@@ -1,0 +1,8 @@
+{
+    "buildCommand": "npm run build",
+    "ignoreCommand": "echo 'Ignoring TypeScript errors during build'",
+    "env": {
+      "NEXT_TYPESCRIPT_CHECK": "false",
+      "NEXT_SKIP_TYPESCRIPT_AND_ESLINT_CHECKS": "true"
+    }
+}

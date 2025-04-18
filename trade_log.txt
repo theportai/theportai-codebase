@@ -1,0 +1,9 @@
+📅 First Timestamp: 2025-03-16 18:49:26
+📅 Last Timestamp: 2025-03-17 12:00:34
+🔢 Dataset Size: 1666 rows
+🔍 i: 30, Price: 83725.47, Max: 83740.88, Min: 83721.68, Threshold: 83740.88, Stop-loss: 82465.85, TP: 84578.29
+🔍 i: 31, Price: 83726.61, Max: 83740.88, Min: 83721.68, Threshold: 83740.88, Stop-loss: 82465.85, TP: 84578.29
+✅ Strategy: BREAKOUT
+💰 Initial Balance: 10000.00
+💰 Final Balance: 10000.00
+✅ Total Trades Executed: 0

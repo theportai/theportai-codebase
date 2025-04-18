@@ -1,0 +1,14 @@
+momentum
+sma_diff
+rsi
+macd
+macd_signal
+atr_14
+volatility_14
+volume_change
+volume_ma_ratio
+body_size
+upper_shadow
+lower_shadow
+price_sma_ratio
+bollinger_position

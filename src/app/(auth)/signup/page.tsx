@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
@@ -8,15 +8,29 @@ export default function SignupPage() {
   const [phone, setPhone] = useState("");
   const [isValid, setIsValid] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [chartData, setChartData] = useState<{ height: number; isPositive: boolean }[]>([]);
+  const [isClient, setIsClient] = useState(false);
   const router = useRouter();
 
+
+  // ✅ Generate chart data only on client side after hydration
+  useEffect(() => {
+    setIsClient(true); // ✅ Mark component as client-rendered
+    setChartData(
+      Array.from({ length: 30 }, () => ({
+        height: Math.floor(Math.random() * 20) + 4, // ✅ Pre-generated height values
+        isPositive: Math.random() > 0.5, // ✅ Pre-generated boolean
+      }))
+    );
+  }, []); // ✅ Runs only once after hydration
+
+
   const validatePhone = (value: string) => {
-    // Basic validation for 10-digit phone number
     return /^\d{10}$/.test(value);
   };
 
-  const handlePhoneChange = (e: { target: { value: string; }; }) => {
-    const value = e.target.value.replace(/\D/g, '');
+  const handlePhoneChange = (e: { target: { value: string } }) => {
+    const value = e.target.value.replace(/\D/g, "");
     setPhone(value);
 
     if (value.length > 0) {
@@ -28,12 +42,44 @@ export default function SignupPage() {
     }
   };
 
-  const handleGetOTP = () => {
-    if (validatePhone(phone)) {
-      router.push(`/verify-otp?phone=${phone}`);
-    } else {
+  const handleGetOTP = async () => {
+    if (!validatePhone(phone)) {
       setIsValid(false);
       setErrorMessage("Please enter a valid 10-digit phone number");
+      return;
+    }
+  
+    try {
+      const response = await fetch("/api/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, type: "send" }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "An error occurred while sending OTP");
+      }
+  
+      const data = await response.json();
+      console.log("✅ OTP Sent Successfully:", data);
+  
+      // 🔥 **Fix: Save phone number in localStorage before navigating**
+      localStorage.setItem("userPhone", phone);  
+      console.log("📲 Phone saved in localStorage:", localStorage.getItem("userPhone"));
+  
+      // ✅ Redirect to OTP verification page
+      router.push(`/verify-otp?phone=${phone}`);
+    } catch (error: unknown) {
+      console.error("❌ Error Sending OTP:", error);
+  
+      let errorMessage = "An error occurred. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+  
+      setIsValid(false);
+      setErrorMessage(errorMessage);
     }
   };
 
@@ -133,20 +179,44 @@ export default function SignupPage() {
                   </div>
                 </div>
 
-                <div className="bg-gray-700 p-4 rounded-lg mb-4">
-                  <div className="flex justify-between mb-2">
-                    <div className="text-sm text-gray-400">Performance</div>
-                    <div className="text-xs text-gray-500">Last 30 Days</div>
+                <div className="bg-gray-700 p-4 rounded-lg mb-4 shadow-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-gray-200 font-medium">Performance (Last 30 Days)</h3>
+                    <div className="bg-gray-900 p-2 rounded-xl border border-gray-700"></div>
+                    <div className="flex items-end justify-around h-24">
+                      {chartData.map((height, i) => (
+                        <div key={i} className={`w-1 h-${height} bg-green-500 rounded`}></div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex items-end justify-around h-24">
-                    {[...Array(30)].map((_, i) => (
-                      <div
-                        key={i}
-                        className={`w-1 h-${Math.floor(Math.random() * 20) + 4} ${Math.random() > 0.5 ? 'bg-green-500' : 'bg-red-500'} rounded`}
-                      ></div>
-                    ))}
+
+                  <div className="relative">
+                    {/* Chart */}
+                    {isClient && chartData.length > 0 && (
+                      <div className="relative">
+                        <div className="flex items-end justify-between h-32 px-2 bg-gray-800 rounded-lg py-3">
+                          {chartData.map((bar, i) => (
+                            <div
+                              key={i}
+                              className={`w-1 ${bar.isPositive ? "bg-green-500" : "bg-red-500"} rounded transition-all hover:w-2`}
+                              style={{ height: `${bar.height * 4}px` }}
+                              title={`Day ${i + 1}`}
+                            ></div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* X-axis labels */}
+                    <div className="flex justify-between mt-1 text-xs text-gray-400 px-2">
+                      <span>1</span>
+                      <span>15</span>
+                      <span>30</span>
+                    </div>
                   </div>
                 </div>
+
+
 
                 <div className="bg-gray-700 p-4 rounded-lg">
                   <div className="text-sm text-gray-400 mb-2">Recent Trades</div>
