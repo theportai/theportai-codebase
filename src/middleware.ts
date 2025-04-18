@@ -4,31 +4,12 @@ import * as jose from "jose";
 
 const PROTECTED_ROUTES = ["/dashboard", "/connect-exchange", "/kyc", "/kyc-waiting"];
 const PUBLIC_ROUTES = ["/login", "/signup", "/welcome", "/support"];
-const PUBLIC_API_BLOCKED = ["/api/otp", "/api/start-trading", "/api/user", "/api/kyc"];
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
 const secretBytes = new TextEncoder().encode(JWT_SECRET);
-
-// Check if we're in public mode (site is public but features locked down)
-const PUBLIC_MODE = process.env.PUBLIC_MODE === 'true';
 
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
     const url = req.nextUrl.clone();
-
-    // PUBLIC MODE PROTECTION - Block access to protected routes and APIs
-    if (PUBLIC_MODE) {
-        // Block API endpoints in public mode
-        if (pathname.startsWith('/api') && 
-            PUBLIC_API_BLOCKED.some(route => pathname.startsWith(route))) {
-            return new NextResponse('🔒 API access is disabled in public mode.', { status: 403 });
-        }
-
-        // Redirect protected routes to homepage in public mode
-        if ([...PROTECTED_ROUTES, "/verify-otp"].some(route => pathname.startsWith(route))) {
-            url.pathname = "/";
-            return NextResponse.redirect(url);
-        }
-    }
 
     // Skip middleware for non-protected routes
     if (!PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
@@ -46,12 +27,7 @@ export async function middleware(req: NextRequest) {
 
     try {
         const { payload } = await jose.jwtVerify(token, secretBytes);
-        // Fix the any type
-        const { kycStatus, exchangeConnected } = payload as { 
-            kycStatus: string; 
-            exchangeConnected: boolean;
-            [key: string]: unknown;
-        };
+        const { kycStatus, exchangeConnected } = payload as any;
 
         console.log(`Middleware: Path=${pathname}, KYC=${kycStatus}, Exchange=${exchangeConnected}`);
 
@@ -115,17 +91,6 @@ export async function middleware(req: NextRequest) {
     }
 }
 
-// Fix the matcher configuration by avoiding spread operators
 export const config = {
-    matcher: [
-        "/((?!_next|favicon.ico|assets|images|css|js).*)",
-        "/dashboard", 
-        "/connect-exchange", 
-        "/kyc", 
-        "/kyc-waiting",
-        "/login", 
-        "/signup", 
-        "/welcome", 
-        "/support"
-    ]
+    matcher: [...PROTECTED_ROUTES, ...PUBLIC_ROUTES],
 };
