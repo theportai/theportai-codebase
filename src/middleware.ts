@@ -46,7 +46,12 @@ export async function middleware(req: NextRequest) {
 
     try {
         const { payload } = await jose.jwtVerify(token, secretBytes);
-        const { kycStatus, exchangeConnected } = payload as any;
+        // Fix the any type
+        const { kycStatus, exchangeConnected } = payload as { 
+            kycStatus: string; 
+            exchangeConnected: boolean;
+            [key: string]: unknown;
+        };
 
         console.log(`Middleware: Path=${pathname}, KYC=${kycStatus}, Exchange=${exchangeConnected}`);
 
@@ -110,10 +115,17 @@ export async function middleware(req: NextRequest) {
     }
 }
 
+// Fix the matcher configuration by avoiding spread operators
 export const config = {
     matcher: [
-        "/((?!_next|favicon.ico|assets|images|css|js).*)", 
-        ...PROTECTED_ROUTES, 
-        ...PUBLIC_ROUTES
-    ],
+        "/((?!_next|favicon.ico|assets|images|css|js).*)",
+        "/dashboard", 
+        "/connect-exchange", 
+        "/kyc", 
+        "/kyc-waiting",
+        "/login", 
+        "/signup", 
+        "/welcome", 
+        "/support"
+    ]
 };

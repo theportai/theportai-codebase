@@ -53,21 +53,18 @@ export const authOptions: AuthOptions = {
   ],
 
   callbacks: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async jwt({ token, user }: any) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.phone = user.phone;
         token.kycStatus = user.kycStatus;
         token.role = user.role;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        token.redirectTo = (user as any).redirectTo; // ✅ Fix redirect storage in token
+        token.redirectTo = user.redirectTo;
       }
       return token;
     },
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async session({ session, token }: any) {
+    async session({ session, token }) {
       session.user = {
         id: token.id as string,
         phone: token.phone as string,
@@ -83,9 +80,11 @@ export const authOptions: AuthOptions = {
   pages: { signIn: "/signup" },
 };
 
-// ✅ Fix NextAuth initialization for TypeScript + ESM
-const handler = async (req: Request, res: Response) => {
-  return await NextAuth(req, res, authOptions);
+// Export API route handlers for Next.js App Router
+export const GET = async (req: Request) => {
+  return await NextAuth(authOptions)(req);
 };
 
-export { handler as GET, handler as POST };
+export const POST = async (req: Request) => {
+  return await NextAuth(authOptions)(req);
+};
