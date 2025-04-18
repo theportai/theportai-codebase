@@ -47,6 +47,14 @@ model OtpRequest {
   createdAt DateTime @default(now())
 }
 
+model Waitlist {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String
+  createdAt DateTime @default(now())
+}
+
 model CryptoPrice {
   id        String   @id @default(uuid())
   symbol    String

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Loader2, AlertCircle, CheckCircle, RefreshCcw } from "lucide-react";
@@ -13,24 +13,40 @@ export default function KYCWaitingPage() {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [error, setError] = useState("");
   const [isRedirecting, setIsRedirecting] = useState(false);
+  
+  // Use refs to track if we've already triggered redirects
+  const redirectTriggered = useRef(false);
+  const intervalRefs = useRef({
+    statusInterval: null,
+    timeInterval: null
+  });
 
   // Fetch KYC status
   const checkStatus = async () => {
     try {
+      if (redirectTriggered.current) {
+        console.log("Redirect already triggered, skipping status check");
+        return;
+      }
+
       setIsLoading(true);
       
       const phone = localStorage.getItem("userPhone");
       if (!phone) {
         console.log("No phone found in localStorage, redirecting to signup");
-        router.replace("/signup");
+        cleanupAndRedirect("/signup");
         return;
       }
 
       console.log("Checking status for phone:", phone);
-      const response = await fetch(`/api/user-status?phone=${encodeURIComponent(phone)}`, {
+      
+      // Force no-cache to always get fresh status
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/user-status?phone=${encodeURIComponent(phone)}&t=${timestamp}`, {
         cache: "no-store",
         headers: {
-          "Cache-Control": "no-cache"
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache"
         }
       });
       
@@ -43,18 +59,34 @@ export default function KYCWaitingPage() {
       console.log("Status response:", data);
       
       const newStatus = data.kycStatus || "PENDING";
-      setStatus(newStatus);
+      console.log("Current status:", status, "New status:", newStatus);
+      
+      if (newStatus !== status) {
+        console.log("Status changed from", status, "to", newStatus);
+        setStatus(newStatus);
+      }
 
-      // If approved, redirect to connect-exchange
-      if (newStatus === "APPROVED" && !isRedirecting) {
-        console.log("Status is APPROVED, preparing to redirect...");
+      // Handle approved status - need to redirect to connect-exchange
+      if (newStatus === "APPROVED" && !redirectTriggered.current) {
+        console.log("KYC APPROVED! Stopping intervals and preparing redirect...");
+        redirectTriggered.current = true;
         setIsRedirecting(true);
+        
+        // Clean up intervals to prevent conflicts
+        if (intervalRefs.current.statusInterval) {
+          clearInterval(intervalRefs.current.statusInterval);
+        }
+        if (intervalRefs.current.timeInterval) {
+          clearInterval(intervalRefs.current.timeInterval);
+        }
         
         // Show approved state briefly before redirecting
         setTimeout(() => {
-          console.log("Redirecting to connect-exchange...");
-          router.replace("/connect-exchange");
+          console.log("EXECUTING REDIRECT to /connect-exchange");
+          document.location.href = "/connect-exchange";
         }, 2000);
+        
+        return;
       }
 
       setIsLoading(false);
@@ -65,18 +97,37 @@ export default function KYCWaitingPage() {
     }
   };
 
+  const cleanupAndRedirect = (path) => {
+    // Clean up intervals to prevent conflicts
+    if (intervalRefs.current.statusInterval) {
+      clearInterval(intervalRefs.current.statusInterval);
+    }
+    if (intervalRefs.current.timeInterval) {
+      clearInterval(intervalRefs.current.timeInterval);
+    }
+    
+    // Set redirect flag
+    redirectTriggered.current = true;
+    
+    // Execute redirect
+    console.log(`Redirecting to ${path}`);
+    document.location.href = path;
+  };
+
+  const handleTryAgain = (e) => {
+    e.preventDefault();
+    console.log("Try Again clicked - navigating to /kyc");
+    cleanupAndRedirect("/kyc");
+  };
+
   useEffect(() => {
     // Check auth status
     const phone = localStorage.getItem("userPhone");
     if (!phone) {
       console.log("No phone in localStorage on initial load, redirecting to login");
-      router.replace("/login?redirect=kyc-waiting");
+      cleanupAndRedirect("/login?redirect=kyc-waiting");
       return;
     }
-
-    // Clean up function reference for interval clearing
-    let statusInterval;
-    let timeInterval;
 
     // Function to initialize everything
     const initialize = () => {
@@ -86,19 +137,22 @@ export default function KYCWaitingPage() {
       }, 100);
 
       // Initial status check
+      console.log("Performing initial status check");
       checkStatus();
 
-      // Set up polling every 15 seconds (reduced from 30 for faster response)
-      statusInterval = setInterval(() => {
-        if (!isRedirecting) {
+      // Set up polling every 8 seconds
+      intervalRefs.current.statusInterval = setInterval(() => {
+        if (!redirectTriggered.current) {
+          console.log("Polling for status update");
           checkStatus();
-          setTimeElapsed(prev => prev + 15);
         }
-      }, 15000);
+      }, 8000);
 
       // Update elapsed time counter every second
-      timeInterval = setInterval(() => {
-        setTimeElapsed(prev => prev + 1);
+      intervalRefs.current.timeInterval = setInterval(() => {
+        if (!redirectTriggered.current) {
+          setTimeElapsed(prev => prev + 1);
+        }
       }, 1000);
     };
 
@@ -106,10 +160,15 @@ export default function KYCWaitingPage() {
 
     // Cleanup function
     return () => {
-      clearInterval(statusInterval);
-      clearInterval(timeInterval);
+      console.log("Component unmounting, cleaning up intervals");
+      if (intervalRefs.current.statusInterval) {
+        clearInterval(intervalRefs.current.statusInterval);
+      }
+      if (intervalRefs.current.timeInterval) {
+        clearInterval(intervalRefs.current.timeInterval);
+      }
     };
-  }, [router, isRedirecting]);
+  }, []); // Empty dependency array so it only runs once
 
   // Format elapsed time
   const formatTime = (seconds) => {
@@ -119,7 +178,9 @@ export default function KYCWaitingPage() {
   };
 
   // Force refresh status
-  const handleRefresh = () => {
+  const handleRefresh = (e) => {
+    e.preventDefault();
+    console.log("Manual refresh clicked");
     checkStatus();
   };
 
@@ -211,7 +272,7 @@ export default function KYCWaitingPage() {
                 "Your KYC has been approved. Redirecting you now..." :
                 "Your KYC has been approved. You'll be redirected to connect your exchange..."
             ) : status === "REJECTED" ? (
-              "Unfortunately, your KYC verification was rejected. Please contact support for more information."
+              "Unfortunately, your KYC verification was rejected. Please try again with correct information."
             ) : (
               "We're currently reviewing your KYC information. This usually takes 24-48 hours."
             )}
@@ -260,23 +321,25 @@ export default function KYCWaitingPage() {
               </button>
             )}
             {status === "REJECTED" && (
-              <button
-                onClick={() => router.push("/welcome")}
+              <a
+                href="/kyc"
+                onClick={handleTryAgain}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 transition-all focus:outline-none focus:ring-2 focus:ring-red-500"
               >
-                Try Again
-              </button>
+                Try Again → Go to KYC Form
+              </a>
             )}
             {status === "APPROVED" && !isRedirecting && (
-              <button
-                onClick={() => {
-                  setIsRedirecting(true);
-                  router.replace("/connect-exchange");
+              <a
+                href="/connect-exchange"
+                onClick={(e) => {
+                  e.preventDefault();
+                  cleanupAndRedirect("/connect-exchange");
                 }}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 transition-all focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 Continue to Exchange Setup &rarr;
-              </button>
+              </a>
             )}
           </div>
         </motion.div>
@@ -289,7 +352,7 @@ export default function KYCWaitingPage() {
           transition={{ delay: 0.6 }}
         >
           <p className="text-sm text-gray-400">
-            Need help? <button onClick={() => router.push("/support")} className="text-blue-400 hover:underline">Contact Support</button>
+            Need help? <a href="/support" className="text-blue-400 hover:underline">Contact Support</a>
           </p>
         </motion.div>
       </motion.div>
