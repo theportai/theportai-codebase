@@ -1,143 +1,148 @@
-import { NextResponse } from "next/server.js";  // ✅ Fix import
-import twilio from "twilio";
-import prisma from "../../../lib/prisma.mjs";
-import jwt from "jsonwebtoken";
+import { NextResponse } from "next/server.js"; 
+import twilio from "twilio"; 
+import prisma from "../../../lib/prisma.mjs"; 
+import * as jose from 'jose';  
 
-const client = twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret"; // Ensure JWT_SECRET is always defined
+const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID; 
+const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN; 
+const twilioServiceId = process.env.TWILIO_SERVICE_ID; 
+const JWT_SECRET = process.env.JWT_SECRET;  
 
-export async function POST(req: Request) {
-  try {
-    // ✅ Parse request body safely
-    const { phone, otp, type } = await req.json();
-    console.log("📩 Received Request:", { phone, otp, type });
+if (!twilioAccountSid || !twilioAuthToken || !twilioServiceId || !JWT_SECRET) {   
+  console.error("❌ Missing required environment variables."); 
+}  
 
-    if (!phone || phone.length !== 10) {
-      console.error("❌ Invalid phone number:", phone);
-      return NextResponse.json({ error: "Invalid phone number. Must be 10 digits." }, { status: 400 });
-    }
+const client = twilio(twilioAccountSid, twilioAuthToken);  
 
+function isValidPhoneNumber(phone: string): boolean {   
+  return /^\d{10}$/.test(phone); 
+}  
+
+export async function POST(req: Request) {   
+  try {     
+    const { phone, otp, type } = await req.json();     
+    console.log("📩 Received Request:", { phone, type, otp: otp ? "***" : undefined });      
+    
+    if (!phone || !isValidPhoneNumber(phone)) {       
+      return NextResponse.json({ error: "Invalid phone number. Must be 10 digits." }, { status: 400 });     
+    }      
+    
     if (type === "send") {
-      
-      // ✅ Check last OTP request timestamp (Rate Limiting)
-      const lastRequest = await prisma.otpRequest.findUnique({
-        where: { phone },
-      });
-
-      if (lastRequest) {
-        const timeSinceLastRequest = (new Date().getTime() - new Date(lastRequest.createdAt).getTime()) / 1000;
+      // 🧪 DEV BYPASS — Skip Twilio for test number
+      if (phone === "9999999999") {
+        console.log("🧪 Dev Mode OTP Bypass Triggered!");
         
-        if (timeSinceLastRequest < 60) { // ⏳ Limit to 1 request per minute
-          console.warn("⚠️ Too many OTP requests for phone:", phone);
-          return NextResponse.json(
-            { error: "Too many requests. Try again in a minute." },
-            { status: 429 }
-          );
-        }
+        // Ensure test user is in the DB with all required fields
+        await prisma.user.upsert({
+          where: { phone },
+          update: {},
+          create: { 
+            phone, 
+            isVerified: false,
+            kycStatus: "NOT_STARTED",
+            exchangeConnected: false
+          },
+        });
+        
+        return NextResponse.json({ message: "OTP bypassed in dev mode!" });
       }
-
-      // ✅ Check for Twilio rate limit (Max 5 OTPs per hour)
-      const oneHourAgo = new Date(new Date().getTime() - 60 * 60 * 1000);
-      const otpCount = await prisma.otpRequest.count({
-        where: {
-          phone,
-          createdAt: { gte: oneHourAgo },
-        },
-      });
-
-      if (otpCount >= 10) {
-        console.warn("⚠️ Twilio rate limit exceeded for phone:", phone);
-        return NextResponse.json(
-          { error: "Too many OTP requests. Try again later." },
-          { status: 429 }
-        );
-      }
-
-      // ✅ Ensure user exists in the database
-      const user = await prisma.user.upsert({
-        where: { phone },
-        update: {},
-        create: { phone, isVerified: false }, // Ensure isVerified exists
-      });
-
-      console.log("✅ User Found or Created:", user);
-
-      if (!process.env.TWILIO_SERVICE_ID) {
-        console.error("❌ TWILIO_SERVICE_ID is not set.");
-        return NextResponse.json({ error: "Server error: Missing Twilio Service ID." }, { status: 500 });
-      }
-
-      // ✅ Store OTP request in database (Ensure Unique Constraint is Handled)
-      await prisma.otpRequest.upsert({
-        where: { phone },
-        update: { createdAt: new Date() }, // Update the timestamp to allow reattempts
-        create: { phone },
-      });
-
-      // ✅ Send OTP using Twilio
-      console.log("📤 Sending OTP to:", phone);
-      try {
-        const verification = await client.verify.v2.services(process.env.TWILIO_SERVICE_ID!)
-          .verifications.create({ to: `+91${phone}`, channel: "sms" });
-
-        console.log("📨 Twilio Response:", verification);
-        return NextResponse.json({ message: "OTP sent successfully!" }, { status: 200 });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (twilioError: any) {
-        console.error("⚠️ Twilio API Error:", twilioError);
-
-        if (twilioError.code === 20429) { // Twilio Too Many Requests
-          return NextResponse.json(
-            { error: "Twilio is temporarily blocking OTPs. Try again in 5 minutes." },
-            { status: 429 }
-          );
-        }
-
-        return NextResponse.json(
-          { error: "Failed to send OTP. Please try again later." },
-          { status: 500 }
-        );
-      }
-
-    } else if (type === "verify") {
-      if (!otp) {
-        console.error("❌ OTP missing in request");
-        return NextResponse.json({ error: "OTP is required for verification." }, { status: 400 });
-      }
-
-      // ✅ Verify OTP with Twilio
-      console.log("🔎 Verifying OTP...");
-      const verificationCheck = await client.verify.v2.services(process.env.TWILIO_SERVICE_ID!)
-        .verificationChecks.create({ to: `+91${phone}`, code: otp });
-
-      if (verificationCheck.status !== "approved") {
-        console.error("❌ OTP Verification Failed:", verificationCheck);
-        return NextResponse.json({ error: "Invalid OTP. Please try again." }, { status: 401 });
-      }
-
-      // ✅ Update user verification status in database
-      await prisma.user.update({
-        where: { phone },
-        data: { isVerified: true }, // Fixed: Ensuring isVerified exists in Prisma
-      });
-
-      // ✅ Generate JWT token for authentication
-      const token = jwt.sign({ phone }, JWT_SECRET, { expiresIn: "7d" });
-
-      console.log("✅ OTP Verified! User Authenticated.");
-      return NextResponse.json({ success: true, token }, { status: 200 });
+      
+      return await handleSendOTP(phone);
     }
+    
+    if (type === "verify") {       
+      if (!otp) return NextResponse.json({ error: "OTP is required for verification." }, { status: 400 });       
+      return await handleVerifyOTP(phone, otp);     
+    }      
+    
+    return NextResponse.json({ error: "Invalid request type." }, { status: 400 });   
+  } catch (error: any) {     
+    console.error("⚠️ OTP Handling Error:", error);     
+    return NextResponse.json({ error: error?.message || "Internal Server Error" }, { status: 500 });   
+  } 
+}  
 
-    return NextResponse.json({ error: "Invalid request type." }, { status: 400 });
+async function handleSendOTP(phone: string) {   
+  const lastRequest = await prisma.otpRequest.findUnique({ where: { phone } });   
+  if (lastRequest) {     
+    const secondsSince = (Date.now() - new Date(lastRequest.createdAt).getTime()) / 1000;     
+    if (secondsSince < 60) return NextResponse.json({ error: "Too many requests. Try again in a minute." }, { status: 429 });   
+  }    
+  
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);   
+  const count = await prisma.otpRequest.count({ where: { phone, createdAt: { gte: oneHourAgo } } });   
+  if (count >= 10) return NextResponse.json({ error: "Too many OTP requests. Try again later." }, { status: 429 });    
+  
+  // Create user with all required fields
+  const user = await prisma.user.upsert({     
+    where: { phone },     
+    update: {},     
+    create: { 
+      phone, 
+      isVerified: false,
+      kycStatus: "NOT_STARTED",
+      exchangeConnected: false
+    }   
+  });    
+  
+  await prisma.otpRequest.upsert({ 
+    where: { phone }, 
+    update: { createdAt: new Date() }, 
+    create: { phone } 
+  });    
+  
+  const result = await client.verify.v2.services(twilioServiceId!)
+    .verifications.create({ to: `+91${phone}`, channel: "sms" });    
+  
+  console.log("📨 OTP Sent:", result.status);   
+  return NextResponse.json({ message: "OTP sent successfully!" }); 
+}  
 
-  } catch (error: unknown) {
-    console.error("⚠️ OTP Handling Error:", error);
-
-    let errorMessage = "Internal Server Error";
-    if (error instanceof Error) {
-      errorMessage = error.message;
+async function handleVerifyOTP(phone: string, otp: string) {
+  // 🧪 DEV BYPASS — Auto-approve verification for test number  
+  if (phone === "9999999999") {
+    console.log("🧪 Dev Mode Verification Bypass Triggered!");
+  } else {
+    const verification = await client.verify.v2.services(twilioServiceId!)
+      .verificationChecks.create({ to: `+91${phone}`, code: otp });
+      
+    if (verification.status !== "approved") {
+      console.error("❌ OTP Verification Failed:", verification.status);
+      return NextResponse.json({ error: "Invalid OTP. Please try again." }, { status: 401 });
     }
-
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
+  
+  // Update user to verified
+  await prisma.user.update({ 
+    where: { phone }, 
+    data: { isVerified: true }
+  });   
+  
+  const user = await prisma.user.findUnique({ where: { phone } });    
+  
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  
+  const payload = {     
+    phone,     
+    kycStatus: user.kycStatus,
+    exchangeConnected: user.exchangeConnected
+  };    
+  
+  const token = await new jose.SignJWT(payload)     
+    .setProtectedHeader({ alg: "HS256" })     
+    .setExpirationTime("7d")     
+    .sign(new TextEncoder().encode(JWT_SECRET));    
+  
+  const response = NextResponse.json({ success: true, token, user: payload });   
+  response.cookies.set("userToken", token, {     
+    httpOnly: true,     
+    secure: process.env.NODE_ENV === "production",     
+    sameSite: "lax",     
+    path: "/",     
+    maxAge: 60 * 60 * 24 * 7   
+  });    
+  
+  return response; 
 }

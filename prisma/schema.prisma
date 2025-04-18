@@ -10,34 +10,36 @@ datasource db {
 }
 
 
-enum KYCStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-
 enum Role {
   USER
   ADMIN
 }
 
-model User {
-  id          String   @id @default(uuid())
-  phone       String   @unique
-  email       String?  @unique
-  fullName    String?
-  pan         String?
-  aadhaar     String?
-  documentUrl String?
-  provider    String    @default("mobile")
-  kycStatus   KYCStatus @default(PENDING)
-  role        Role      @default(USER)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  isVerified  Boolean   @default(false)
+enum KYCStatus {
+  NOT_STARTED
+  PENDING
+  APPROVED
+  REJECTED
 }
 
+model User {
+  id                String    @id @default(uuid())
+  phone             String    @unique
+  email             String?   @unique
+  fullName          String?
+  pan               String?
+  aadhaar           String?
+  documentUrl       String?
+  panDocumentUrl    String?
+  aadhaarDocumentUrl String?
+  provider          String    @default("mobile")
+  kycStatus         KYCStatus @default(NOT_STARTED)
+  role              Role      @default(USER)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  isVerified        Boolean   @default(false)
+  exchangeConnected Boolean   @default(false)
+}
 
 model OtpRequest {
   id        String   @id @default(uuid())
@@ -45,6 +47,13 @@ model OtpRequest {
   createdAt DateTime @default(now())
 }
 
+model Waitlist {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String
+  createdAt DateTime @default(now())
+}
 
 model CryptoPrice {
   id        String   @id @default(uuid())
@@ -58,19 +67,19 @@ model CryptoPrice {
 }
 
 model TechnicalIndicators {
-  id          Int      @id @default(autoincrement()) // Unique ID
-  symbol      String   // BTCUSDT, ETHUSDT, etc.
-  timestamp   DateTime @unique // Unique timestamp for each indicator record
-  sma_14      Float    // Simple Moving Average (14)
-  ema_14      Float    // Exponential Moving Average (14)
-  rsi_14      Float    // Relative Strength Index (14)
-  macd        Float    // MACD Indicator
-  macd_signal Float    // MACD Signal Line
-  macd_hist   Float    // MACD Histogram
-  bb_high     Float    // Bollinger Bands - Upper Band
-  bb_mid      Float    // Bollinger Bands - Middle Band
-  bb_low      Float    // Bollinger Bands - Lower Band
-  trend       String   @default("Neutral ⚪") // Default: Neutral ⚪
+  id          Int      @id @default(autoincrement())
+  symbol      String
+  timestamp   DateTime @unique
+  sma_14      Float
+  ema_14      Float
+  rsi_14      Float
+  macd        Float
+  macd_signal Float
+  macd_hist   Float
+  bb_high     Float
+  bb_mid      Float
+  bb_low      Float
+  trend       String   @default("Neutral ⚪")
 
-  @@unique([symbol, timestamp]) // Ensure unique records per symbol & timestamp
+  @@unique([symbol, timestamp])
 }
