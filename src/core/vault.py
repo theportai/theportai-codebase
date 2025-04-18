@@ -2,6 +2,7 @@ import os
 import time
 import hashlib
 import secrets
+import sys
 from typing import Optional, Set, Dict, Any, Tuple
 from functools import lru_cache
 import logging
@@ -10,6 +11,11 @@ from dotenv import load_dotenv  # type: ignore
 
 # Configure logger with appropriate security measures
 logger = logging.getLogger("PortAI-Vault")
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 # Load environment variables once when module is imported
 load_dotenv()
@@ -37,11 +43,12 @@ class Vault:
             "start_live",
             "binance_client",
             "news_client",
-            "trading_agent"
+            "trading_agent",
+            "api_server"  # Added for Next.js API routes
         })
 
         if os.getenv("ENV") == "dev":
-            self.allowed_callers = self.allowed_callers.union({"trading_agent"})
+            self.allowed_callers = frozenset(self.allowed_callers).union({"trading_agent", "test_caller"})
         
         # Optional in-memory cache with expiration times
         self._cache: Dict[str, Tuple[str, float]] = {}
@@ -186,6 +193,155 @@ class Vault:
             
             return value
     
+    def set_key(self, key: str, value: str, caller: str = "") -> bool:
+        """
+        Store a key in the vault securely.
+        
+        Args:
+            key: The key name to store
+            value: The value to store
+            caller: The name of the calling component (for access control)
+            
+        Returns:
+            Boolean indicating success
+        """
+        # Security check with constant time verification
+        if not caller or not self._verify_caller(caller):
+            logger.warning(f"Unauthorized attempt to set key: {key} by caller: {caller}")
+            time.sleep(secrets.randbelow(10) / 1000)  # 0-10ms random delay
+            return False
+        
+        # In a real implementation, this would securely store in a vault service
+        # For this example, we'll use environment variables (not recommended for production)
+        with self._sensitive_context():
+            os.environ[key] = value
+        
+        # Invalidate any cached versions
+        self.invalidate_cache(key)
+        
+        # Generate request hash for audit trails
+        request_id = hashlib.sha256(f"{caller}:{key}:{time.time()}".encode()).hexdigest()[:12]
+        logger.info(f"[Vault] Key set: {key} by {caller} (request: {request_id})")
+        return True
+    
+    def delete_key(self, key: str, caller: str = "") -> bool:
+        """
+        Delete a key from the vault.
+        
+        Args:
+            key: The key name to delete
+            caller: The name of the calling component (for access control)
+            
+        Returns:
+            Boolean indicating success
+        """
+        # Security check with constant time verification
+        if not caller or not self._verify_caller(caller):
+            logger.warning(f"Unauthorized attempt to delete key: {key} by caller: {caller}")
+            time.sleep(secrets.randbelow(10) / 1000)  # 0-10ms random delay
+            return False
+        
+        # Remove from environment (in reality, would remove from actual vault)
+        with self._sensitive_context():
+            if key in os.environ:
+                del os.environ[key]
+        
+        # Invalidate any cached versions
+        self.invalidate_cache(key)
+        
+        # Generate request hash for audit trails
+        request_id = hashlib.sha256(f"{caller}:{key}:{time.time()}".encode()).hexdigest()[:12]
+        logger.info(f"[Vault] Key deleted: {key} by {caller} (request: {request_id})")
+        return True
+    
+    def set_user_key(self, user_id: str, key_name: str, key_value: str, caller: str = "") -> bool:
+        """
+        Store a user-specific key in the vault securely.
+        
+        Args:
+            user_id: The user ID to associate with the key
+            key_name: The key name to store
+            key_value: The value to store
+            caller: The name of the calling component (for access control)
+            
+        Returns:
+            Boolean indicating success
+        """
+        # Generate a user-specific key format
+        full_key = f"USER_{user_id}_{key_name}"
+        
+        # Security check with constant time verification
+        if not caller or not self._verify_caller(caller):
+            logger.warning(f"Unauthorized attempt to set user key: {full_key} by caller: {caller}")
+            time.sleep(secrets.randbelow(10) / 1000)  # 0-10ms random delay
+            return False
+        
+        # In a real implementation, this would securely store in a vault service
+        # For this example, we'll use environment variables (not recommended for production)
+        with self._sensitive_context():
+            os.environ[full_key] = key_value
+        
+        # Invalidate any cached versions
+        self.invalidate_cache(full_key)
+        
+        # Generate request hash for audit trails
+        request_id = hashlib.sha256(f"{caller}:{full_key}:{time.time()}".encode()).hexdigest()[:12]
+        logger.info(f"[Vault] User key set: {full_key} by {caller} (request: {request_id})")
+        return True
+    
+    def get_user_key(self, user_id: str, key_name: str, caller: str = "", ttl: int = 300) -> str:
+        """
+        Retrieve a user-specific key from the vault securely.
+        
+        Args:
+            user_id: The user ID associated with the key
+            key_name: The key name to retrieve
+            caller: The name of the calling component (for access control)
+            ttl: Time-to-live for the key in seconds (default: 5 minutes)
+            
+        Returns:
+            The key value or empty string if not found/unauthorized
+        """
+        # Generate a user-specific key format
+        full_key = f"USER_{user_id}_{key_name}"
+        
+        # Use the existing get_key method with the full key
+        return self.get_key(full_key, caller, ttl)
+    
+    def delete_user_key(self, user_id: str, key_name: str, caller: str = "") -> bool:
+        """
+        Delete a user-specific key from the vault.
+        
+        Args:
+            user_id: The user ID associated with the key
+            key_name: The key name to delete
+            caller: The name of the calling component (for access control)
+            
+        Returns:
+            Boolean indicating success
+        """
+        # Generate a user-specific key format
+        full_key = f"USER_{user_id}_{key_name}"
+        
+        # Security check with constant time verification
+        if not caller or not self._verify_caller(caller):
+            logger.warning(f"Unauthorized attempt to delete user key: {full_key} by caller: {caller}")
+            time.sleep(secrets.randbelow(10) / 1000)  # 0-10ms random delay
+            return False
+        
+        # Remove from environment (in reality, would remove from actual vault)
+        with self._sensitive_context():
+            if full_key in os.environ:
+                del os.environ[full_key]
+        
+        # Invalidate any cached versions
+        self.invalidate_cache(full_key)
+        
+        # Generate request hash for audit trails
+        request_id = hashlib.sha256(f"{caller}:{full_key}:{time.time()}".encode()).hexdigest()[:12]
+        logger.info(f"[Vault] User key deleted: {full_key} by {caller} (request: {request_id})")
+        return True
+    
     def invalidate_cache(self, key: Optional[str] = None) -> None:
         """
         Invalidate cached keys (useful if keys are rotated).
@@ -204,25 +360,27 @@ class Vault:
         
         logger.info(f"Cache {'fully' if key is None else f'for key {key}'} invalidated")
     
-    def rotate_key(self, key: str, new_value: str) -> bool:
+    def rotate_key(self, key: str, new_value: str, caller: str = "") -> bool:
         """
         Support for secure key rotation without service disruption.
         
         Args:
             key: The key to rotate
             new_value: The new value for the key
+            caller: The name of the calling component (for access control)
             
         Returns:
             Boolean indicating success
         """
         # This would typically update the key in your secure storage
-        # For environment variables, this would require system changes
-        # In a real implementation, this might use a secure secret manager
+        # For this implementation, use set_key
+        if not self.set_key(key, new_value, caller):
+            return False
         
         # Invalidate any cached versions
         self.invalidate_cache(key)
         
-        logger.info(f"Key rotation initiated for: {key}")
+        logger.info(f"Key rotation completed for: {key}")
         return True
     
     def __del__(self):
@@ -237,16 +395,59 @@ class Vault:
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--caller", required=True)
+    
+    parser = argparse.ArgumentParser(description='Vault CLI for secure key operations')
+    parser.add_argument("--action", required=True, 
+                        choices=["get", "set", "delete", "get-user", "set-user", "delete-user"],
+                        help="Action to perform")
+    parser.add_argument("--key", required=True, help="Key name")
+    parser.add_argument("--value", help="Value to set (required for set operations)")
+    parser.add_argument("--caller", required=True, help="Name of calling component")
+    parser.add_argument("--user-id", help="User ID for user-specific operations")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    
     args = parser.parse_args()
-
+    
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+    
     vault = Vault()
     try:
-        print(f"🔐 Access granted for caller: {args.caller}")
-        api_key = vault.get_key("BINANCE_API_KEY", caller=args.caller)
-        secret = vault.get_key("BINANCE_SECRET", caller=args.caller)
-        print(f"✅ Retrieved: BINANCE_API_KEY = {api_key[:4]}...****")
-        print(f"✅ Retrieved: BINANCE_SECRET = {secret[:4]}...****")
+        # User-specific operations
+        if args.action == "get-user":
+            if not args.user_id:
+                print("Error: --user-id is required for user operations", file=sys.stderr)
+                sys.exit(1)
+            value = vault.get_user_key(args.user_id, args.key, caller=args.caller)
+            print(value)
+        elif args.action == "set-user":
+            if not args.user_id:
+                print("Error: --user-id is required for user operations", file=sys.stderr)
+                sys.exit(1)
+            if not args.value:
+                print("Error: --value is required for set operations", file=sys.stderr)
+                sys.exit(1)
+            result = vault.set_user_key(args.user_id, args.key, args.value, caller=args.caller)
+            print("success" if result else "failed")
+        elif args.action == "delete-user":
+            if not args.user_id:
+                print("Error: --user-id is required for user operations", file=sys.stderr)
+                sys.exit(1)
+            result = vault.delete_user_key(args.user_id, args.key, caller=args.caller)
+            print("success" if result else "failed")
+        # Standard operations
+        elif args.action == "get":
+            value = vault.get_key(args.key, caller=args.caller)
+            print(value)
+        elif args.action == "set":
+            if not args.value:
+                print("Error: --value is required for set operations", file=sys.stderr)
+                sys.exit(1)
+            result = vault.set_key(args.key, args.value, caller=args.caller)
+            print("success" if result else "failed")
+        elif args.action == "delete":
+            result = vault.delete_key(args.key, caller=args.caller)
+            print("success" if result else "failed")
     except Exception as e:
-        print(f"❌ Error during vault access: {str(e)}")
+        print(f"Error: {str(e)}", file=sys.stderr)
+        sys.exit(1)
