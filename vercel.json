@@ -1,5 +1,5 @@
 {
-    "buildCommand": "npm run build",
+    "buildCommand": "prisma generate && next build",
     "ignoreCommand": "echo 'Ignoring TypeScript errors during build'",
     "env": {
       "NEXT_TYPESCRIPT_CHECK": "false",
