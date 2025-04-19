@@ -1,54 +1,52 @@
-"use client";
+"use client"; 
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/router";
+import { useSearchParams } from "next/navigation"; 
 
 export default function StripeSuccessPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [status, setStatus] = useState("Processing payment...");
   const [error, setError] = useState("");
   
-  // Get parameters from search params
-  const sessionId = searchParams.get("session_id");
-  const phone = searchParams.get("phone");
+  // For Pages Router
+  const querySessionId = router.query?.session_id;
+  const queryPhone = router.query?.phone;
+  
+  // For App Router
+  const searchParams = useSearchParams?.();
+  const searchSessionId = searchParams?.get("session_id");
+  const searchPhone = searchParams?.get("phone");
+  
+  // Use whichever is available
+  const sessionId = querySessionId || searchSessionId;
+  const phone = queryPhone || searchPhone;
 
   useEffect(() => {
-    // Only run if we have the necessary params
-    if (!sessionId || !phone) {
-      setStatus("Missing payment details. Redirecting to pricing...");
-      // Redirect after a brief delay if missing required params
-      const timeout = setTimeout(() => {
-        router.push("/pricing");
-      }, 2000);
-      return () => clearTimeout(timeout);
-    }
-
     async function processPayment() {
+      if (!sessionId || !phone) {
+        setStatus("Waiting for payment details...");
+        return;
+      }
+
       try {
         setStatus("Verifying payment...");
         
         // Call API to process payment and get new token
         const response = await fetch(
-          `/api/stripe-success?session_id=${encodeURIComponent(sessionId)}&phone=${encodeURIComponent(phone)}`
+          `/api/stripe-success?session_id=${sessionId}&phone=${phone}`
         );
-        
-        if (!response.ok) {
-          throw new Error(`Server responded with status: ${response.status}`);
-        }
         
         const data = await response.json();
         
         if (data.success) {
           setStatus("Payment successful! Redirecting to dashboard...");
           
-          // Give a small delay to allow cookies/state to be properly set
-          const timeout = setTimeout(() => {
+          // Give a small delay to allow cookies to be properly set
+          setTimeout(() => {
             // Use the suggested redirect or default to dashboard
             router.push(data.redirectTo || "/dashboard");
           }, 1500);
-          
-          return () => clearTimeout(timeout);
         } else {
           setError(data.error || "Payment verification failed");
           setStatus("Error");
@@ -78,6 +76,7 @@ export default function StripeSuccessPage() {
         ) : (
           <>
             <div className="flex items-center justify-center mb-6">
+              {/* You can add a loading spinner here */}
               <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
             </div>
             <p className="text-center text-gray-300">{status}</p>
