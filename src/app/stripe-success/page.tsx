@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function StripeSuccessPage() {
+// Component that uses the search params
+function StripeSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState('Processing payment...');
@@ -93,5 +95,29 @@ export default function StripeSuccessPage() {
         </>
       )}
     </div>
+  );
+}
+
+// Loading fallback component
+function LoadingState() {
+  return (
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
+      <div className="mb-6 animate-pulse">
+        <svg className="w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <h1 className="text-3xl font-bold mb-4 text-center">Processing Payment</h1>
+      <p className="text-gray-400 text-lg mb-2 text-center">Loading payment information...</p>
+    </div>
+  );
+}
+
+// Main page component with Suspense
+export default function StripeSuccessPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <StripeSuccessContent />
+    </Suspense>
   );
 }
