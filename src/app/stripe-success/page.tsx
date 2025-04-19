@@ -1,97 +1,97 @@
-"use client"; 
+"use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import { useSearchParams } from "next/navigation"; 
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function StripeSuccessPage() {
   const router = useRouter();
-  const [status, setStatus] = useState("Processing payment...");
-  const [error, setError] = useState("");
-  
-  // For Pages Router
-  const querySessionId = router.query?.session_id;
-  const queryPhone = router.query?.phone;
-  
-  // For App Router
-  const searchParams = useSearchParams?.();
-  const searchSessionId = searchParams?.get("session_id");
-  const searchPhone = searchParams?.get("phone");
-  
-  // Use whichever is available
-  const sessionId = querySessionId || searchSessionId;
-  const phone = queryPhone || searchPhone;
+  const searchParams = useSearchParams();
+  const [status, setStatus] = useState('Processing payment...');
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    async function processPayment() {
-      if (!sessionId || !phone) {
-        setStatus("Waiting for payment details...");
-        return;
-      }
-
+    const handleSuccessRedirect = async () => {
       try {
-        setStatus("Verifying payment...");
+        // Get parameters from URL
+        const phone = searchParams.get('phone');
+        const sessionId = searchParams.get('session_id');
         
-        // Call API to process payment and get new token
-        const response = await fetch(
-          `/api/stripe-success?session_id=${sessionId}&phone=${phone}`
-        );
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          setStatus("Payment successful! Redirecting to dashboard...");
-          
-          // Give a small delay to allow cookies to be properly set
-          setTimeout(() => {
-            // Use the suggested redirect or default to dashboard
-            router.push(data.redirectTo || "/dashboard");
-          }, 1500);
-        } else {
-          setError(data.error || "Payment verification failed");
-          setStatus("Error");
+        if (!phone || !sessionId) {
+          setError('Missing required information. Please try again.');
+          return;
         }
-      } catch (err) {
-        console.error("Error processing payment:", err);
-        setError("Something went wrong. Please contact support.");
-        setStatus("Error");
-      }
-    }
 
-    processPayment();
-  }, [sessionId, phone, router]);
+        // Call our API endpoint to verify payment and set auth cookie
+        const response = await fetch(`/api/stripe-success?phone=${encodeURIComponent(phone)}&session_id=${sessionId}`);
+        
+        if (!response.ok) {
+          const data = await response.json();
+          setError(data.error || 'Failed to process your subscription');
+          return;
+        }
+
+        // Successfully processed, redirect to dashboard
+        setStatus('Success! Redirecting to your dashboard...');
+        router.push('/dashboard');
+        
+      } catch (error) {
+        console.error('Error processing subscription:', error);
+        setError('Something went wrong. Please contact support.');
+      }
+    };
+
+    handleSuccessRedirect();
+  }, [searchParams, router]);
+
+  // Allow manual redirect if automatic one fails
+  const handleManualRedirect = () => {
+    router.push('/dashboard');
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
-      <div className="max-w-md w-full p-8 bg-gray-800 rounded-lg shadow-lg">
-        <h1 className="text-2xl font-bold mb-6 text-center">PortAI Pro Subscription</h1>
-        
-        {status === "Error" ? (
-          <div className="bg-red-900/30 border border-red-500 rounded-md p-4 mb-6">
-            <p className="text-red-300">{error}</p>
-            <p className="mt-2">
-              Please try again or contact support if the issue persists.
-            </p>
-          </div>
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
+      <div className={`mb-6 ${!error ? 'animate-pulse' : ''}`}>
+        {!error ? (
+          <svg className="w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
         ) : (
-          <>
-            <div className="flex items-center justify-center mb-6">
-              {/* You can add a loading spinner here */}
-              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-            <p className="text-center text-gray-300">{status}</p>
-          </>
-        )}
-        
-        {status === "Error" && (
-          <button
-            onClick={() => router.push("/pricing")}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors mt-6"
-          >
-            Back to Pricing
-          </button>
+          <svg className="w-12 h-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
         )}
       </div>
+      
+      <h1 className="text-3xl font-bold mb-4 text-center">
+        {error ? 'Payment Processing Issue' : 'Finalizing Your Subscription'}
+      </h1>
+      
+      {error ? (
+        <>
+          <p className="text-red-400 text-lg mb-6 text-center">{error}</p>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button 
+              onClick={handleManualRedirect}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+            >
+              Continue to Dashboard
+            </button>
+            <button 
+              onClick={() => router.push('/pricing')}
+              className="px-6 py-2 bg-gray-700 hover:bg-gray-800 rounded-md transition-colors"
+            >
+              Return to Pricing
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-gray-400 text-lg mb-2 text-center">{status}</p>
+          <p className="text-gray-500 text-sm text-center">
+            You'll be automatically redirected when your payment is confirmed.
+          </p>
+        </>
+      )}
     </div>
   );
 }
