@@ -20,9 +20,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing origin' }, { status: 500 });
     }
     
-    const user = await prisma.user.findUnique({ where: { phone } });
+    const user = await prisma.user.findUnique({ 
+      where: { phone } 
+    });
+    
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    
+    // Check if user is already subscribed
+    if (user.subscriptionActive === true) {
+      return NextResponse.json({ 
+        redirectToDashboard: true,
+        message: 'User already has an active subscription'
+      });
     }
     
     const session = await stripe.checkout.sessions.create({
@@ -37,7 +48,6 @@ export async function POST(req: Request) {
       metadata: {
         userPhone: phone,
       },
-      // First redirect to stripe-success page, which will handle session verification
       success_url: `${origin}/stripe-success?phone=${encodeURIComponent(phone)}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/pricing`,
     });

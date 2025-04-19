@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
-import * as jose from "jose";
 import Stripe from 'stripe';
 import prisma from '@/lib/prisma.mjs';
+import { generateUserTokenByPhone } from '@/utils/jwt'; 
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret";
-const secretKey = new TextEncoder().encode(JWT_SECRET);
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
 });
@@ -35,6 +33,19 @@ export async function GET(req: Request) {
         }, { status: 400 });
       }
       
+      // Find the user first to get their current state
+      const user = await prisma.user.findUnique({
+        where: { phone },
+        select: {
+          id: true,
+          exchangeConnected: true
+        }
+      });
+      
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      
       // Update user subscription status in database
       await prisma.user.update({
         where: { phone },
@@ -42,36 +53,27 @@ export async function GET(req: Request) {
           subscriptionActive: true,
         }
       });
+      
+      // Generate token using your proper JWT utility to include all user fields
+      const token = await generateUserTokenByPhone(phone);
+      
+      // Set cookie
+      const response = NextResponse.json({ success: true });
+      response.cookies.set("userToken", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        path: "/",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      });
+      
+      return response;
     } catch (stripeErr) {
       console.error("Stripe verification error:", stripeErr);
       return NextResponse.json({ 
         error: "Could not verify payment. Please contact support."
       }, { status: 500 });
     }
-    
-    // Create new token with updated subscriptionActive = true
-    const token = await new jose.SignJWT({
-      phone,
-      kycStatus: "APPROVED",
-      exchangeConnected: true,
-      subscriptionActive: true,
-    })
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime("7d")
-      .sign(secretKey);
-    
-    // Set cookie but don't redirect - let the frontend handle the redirect
-    const response = NextResponse.json({ success: true });
-    response.cookies.set("userToken", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      path: "/",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
-    
-    return response;
   } catch (err) {
     console.error("❌ Error in /api/stripe-success:", err);
     return NextResponse.json({ 
