@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from 'stripe';
 import prisma from '@/lib/prisma.mjs';
-import { generateUserTokenByPhone } from '@/utils/jwt'; 
+import { generateUserTokenByPhone } from '@/utils/user-data'; // Updated import path
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -36,10 +36,6 @@ export async function GET(req: Request) {
       // Find the user first to get their current state
       const user = await prisma.user.findUnique({
         where: { phone },
-        select: {
-          id: true,
-          exchangeConnected: true
-        }
       });
       
       if (!user) {
@@ -47,27 +43,47 @@ export async function GET(req: Request) {
       }
       
       // Update user subscription status in database
-      await prisma.user.update({
+      const updatedUser = await prisma.user.update({
         where: { phone },
         data: { 
           subscriptionActive: true,
         }
       });
       
-      // Generate token using your proper JWT utility to include all user fields
+      console.log("User subscription updated:", updatedUser);
+      
+      // Generate new token with updated subscription status
       const token = await generateUserTokenByPhone(phone);
       
-      // Set cookie
-      const response = NextResponse.json({ success: true });
-      response.cookies.set("userToken", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        path: "/",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-      });
-      
-      return response;
+      // Return HTML that redirects to dashboard and sets the token
+      return new Response(
+        `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Payment Successful</title>
+            <script>
+              // Set cookie with the new token
+              document.cookie = "userToken=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax";
+              
+              // Redirect to dashboard
+              window.location.href = "/dashboard";
+            </script>
+          </head>
+          <body>
+            <h1>Payment Successful!</h1>
+            <p>Redirecting to dashboard...</p>
+          </body>
+        </html>
+        `,
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        }
+      );
     } catch (stripeErr) {
       console.error("Stripe verification error:", stripeErr);
       return NextResponse.json({ 

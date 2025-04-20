@@ -1,11 +1,12 @@
+// src/middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyJwtToken } from "./utils/jwt";
 
-const PROTECTED_ROUTES = ["/dashboard", "/connect-exchange", "/kyc", "/kyc-waiting", "/pricing"];
-const PUBLIC_ROUTES = ["/login", "/signup", "/welcome", "/stripe-success"];
+const PROTECTED_ROUTES = ["/dashboard", "/connect-exchange", "/kyc", "/kyc-waiting", "/pricing", "/welcome"];
+const PUBLIC_ROUTES = ["/login", "/signup", "/stripe-success"];
 
-const AUTH_PAGE = "/signup"; 
+const AUTH_PAGE = "/signup";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -20,7 +21,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL(AUTH_PAGE, req.url));
     }
 
-    // Verify token
+    // Verify token structure only (no database operations)
     const payload = await verifyJwtToken(token);
     if (!payload) {
       console.error("Invalid JWT Token");
@@ -31,7 +32,8 @@ export async function middleware(req: NextRequest) {
     }
 
     try {
-      // Extract user data from token payload
+      // Use the data from token for navigation decisions
+      // This avoids Prisma database calls in middleware
       const { kycStatus, exchangeConnected, subscriptionActive } = payload;
       
       console.log(`Middleware check: ${pathname}, User status:`, {
@@ -40,108 +42,49 @@ export async function middleware(req: NextRequest) {
         subscriptionActive
       });
       
-      // Handle welcome route redirection
-      if (pathname === "/welcome") {
-        if (kycStatus === "NOT_STARTED") {
+      // Handle KYC flow based on user status
+      if (kycStatus === "NOT_STARTED") {
+        // If user hasn't started KYC and trying to access any protected route except KYC
+        if (pathname !== "/kyc" && !pathname.startsWith("/kyc/")) {
           return NextResponse.redirect(new URL("/kyc", req.url));
-        } else if (kycStatus === "PENDING") {
+        }
+      } else if (kycStatus === "PENDING") {
+        // If KYC is pending, user should be on kyc-waiting
+        if (pathname !== "/kyc-waiting" && !pathname.startsWith("/kyc-waiting/")) {
           return NextResponse.redirect(new URL("/kyc-waiting", req.url));
-        } else if (kycStatus === "APPROVED") {
-          if (!exchangeConnected) {
+        }
+      } else if (kycStatus === "APPROVED") {
+        // KYC is approved, check exchange connection
+        if (!exchangeConnected) {
+          // If exchange not connected and user not on connect-exchange page
+          if (pathname !== "/connect-exchange" && !pathname.startsWith("/connect-exchange/")) {
             return NextResponse.redirect(new URL("/connect-exchange", req.url));
-          } else if (!subscriptionActive) {
-            return NextResponse.redirect(new URL("/pricing", req.url));
-          } else {
-            return NextResponse.redirect(new URL("/dashboard", req.url));
           }
-        }
-        return NextResponse.next();
-      }
-      
-      // Handle KYC routes
-      if (pathname === "/kyc" || pathname.startsWith("/kyc/")) {
-        if (kycStatus === "PENDING") {
-          return NextResponse.redirect(new URL("/kyc-waiting", req.url));
-        } else if (kycStatus === "APPROVED") {
-          if (!exchangeConnected) {
-            return NextResponse.redirect(new URL("/connect-exchange", req.url));
-          } else if (!subscriptionActive) {
-            return NextResponse.redirect(new URL("/pricing", req.url));
-          } else {
-            return NextResponse.redirect(new URL("/dashboard", req.url));
-          }
-        }
-        return NextResponse.next();
-      }
-      
-      // Handle KYC-Waiting routes
-      if (pathname === "/kyc-waiting" || pathname.startsWith("/kyc-waiting/")) {
-        if (kycStatus === "NOT_STARTED") {
-          return NextResponse.redirect(new URL("/kyc", req.url));
-        } else if (kycStatus === "APPROVED") {
-          if (!exchangeConnected) {
-            return NextResponse.redirect(new URL("/connect-exchange", req.url));
-          } else if (!subscriptionActive) {
-            return NextResponse.redirect(new URL("/pricing", req.url));
-          } else {
-            return NextResponse.redirect(new URL("/dashboard", req.url));
-          }
-        }
-        return NextResponse.next();
-      }
-      
-      // Handle connect-exchange route
-      if (pathname === "/connect-exchange" || pathname.startsWith("/connect-exchange/")) {
-        if (kycStatus !== "APPROVED") {
-          return NextResponse.redirect(new URL("/kyc", req.url));
-        } else if (exchangeConnected && !subscriptionActive) {
-          return NextResponse.redirect(new URL("/pricing", req.url));
-        } else if (exchangeConnected && subscriptionActive) {
-          return NextResponse.redirect(new URL("/dashboard", req.url));
-        }
-        return NextResponse.next();
-      }
-      
-      // Handle pricing route
-      if (pathname === "/pricing") {
-        if (kycStatus !== "APPROVED") {
-          return NextResponse.redirect(new URL("/kyc", req.url));
-        } else if (!exchangeConnected) {
-          return NextResponse.redirect(new URL("/connect-exchange", req.url));
-        } else if (subscriptionActive) {
-          return NextResponse.redirect(new URL("/dashboard", req.url));
-        }
-        return NextResponse.next();
-      }
-
-      // Handle stripe-success route
-      if (pathname === "/stripe-success" || pathname.startsWith("/stripe-success")) {
-        if (kycStatus !== "APPROVED") {
-          return NextResponse.redirect(new URL("/kyc", req.url));
-        } else if (!exchangeConnected) {
-          return NextResponse.redirect(new URL("/connect-exchange", req.url));
-        }
-        return NextResponse.next();
-      }
-
-      // Handle dashboard route
-      if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
-        if (kycStatus !== "APPROVED") {
-          return NextResponse.redirect(new URL("/kyc", req.url));
-        } else if (!exchangeConnected) {
-          return NextResponse.redirect(new URL("/connect-exchange", req.url));
         } else if (!subscriptionActive) {
-          return NextResponse.redirect(new URL("/pricing", req.url));
+          // Exchange connected but no subscription
+          // Allow access to stripe-success as it's needed for payment completion
+          if (pathname !== "/pricing" && pathname !== "/stripe-success" && !pathname.startsWith("/stripe-success/")) {
+            return NextResponse.redirect(new URL("/pricing", req.url));
+          }
+        } else {
+          // User has completed all required steps
+          // If they try to access earlier steps, redirect to dashboard
+          if ((pathname === "/pricing" || pathname === "/kyc" || pathname === "/kyc-waiting" || 
+              pathname === "/connect-exchange" || pathname === "/welcome") && 
+              pathname !== "/stripe-success" && !pathname.startsWith("/stripe-success/")) {
+            return NextResponse.redirect(new URL("/dashboard", req.url));
+          }
         }
-        return NextResponse.next();
       }
       
+      return NextResponse.next();
     } catch (err) {
       console.error("Error processing token data:", err);
       return NextResponse.redirect(new URL(AUTH_PAGE, req.url));
     }
   }
   
+  // For public routes or unmatched routes, proceed without redirection
   return NextResponse.next();
 }
 

@@ -4,27 +4,49 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 
-
 export default function PricingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(true);
 
   useEffect(() => {
-    const token = document.cookie
-      .split(";")
-      .find((c) => c.trim().startsWith("userToken="))
-      ?.split("=")[1];
-
-    if (token) {
-      try {
-        const decoded: any = jwtDecode(token);
-        setIsSubscribed(decoded.subscriptionActive === true);
-      } catch (err) {
-        console.error("Failed to decode JWT:", err);
-      }
-    }
+    checkSubscriptionStatus();
   }, []);
+
+  // Function to check subscription status from token or API
+  const checkSubscriptionStatus = async () => {
+    setIsCheckingStatus(true);
+    
+    try {
+      // First refresh the token to ensure we have latest data
+      const phone = localStorage.getItem("userPhone");
+      if (phone) {
+        await fetch(`/api/auth/refresh-token?phone=${encodeURIComponent(phone)}`);
+      }
+      
+      // Now read the updated token
+      const token = document.cookie
+        .split(";")
+        .find((c) => c.trim().startsWith("userToken="))
+        ?.split("=")[1];
+
+      if (token) {
+        try {
+          const decoded: any = jwtDecode(token);
+          console.log("Decoded token:", decoded);
+          
+          setIsSubscribed(decoded.subscriptionActive === true);
+        } catch (err) {
+          console.error("Failed to decode JWT:", err);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking subscription status:", error);
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
 
   const handleSubscribe = async () => {
     setIsLoading(true);
@@ -73,13 +95,28 @@ export default function PricingPage() {
           </ul>
         </div>
 
-        {isSubscribed ? (
+        {isCheckingStatus ? (
           <button
             disabled
-            className="w-full bg-green-700 text-white font-medium py-3 rounded-xl flex items-center justify-center transition duration-300"
+            className="w-full bg-gray-700 text-white font-medium py-3 rounded-xl flex items-center justify-center transition duration-300"
           >
-            ✅ You're already subscribed
+            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Checking subscription...
           </button>
+        ) : isSubscribed ? (
+          <div className="flex flex-col items-center">
+            <button
+              disabled
+              className="w-full bg-green-700 text-white font-medium py-3 rounded-xl flex items-center justify-center transition duration-300 mb-4"
+            >
+              ✅ You're already subscribed
+            </button>
+            <a 
+              href="/dashboard" 
+              className="text-blue-400 hover:text-blue-300 text-sm transition"
+            >
+              Go to Dashboard →
+            </a>
+          </div>
         ) : (
           <button
             onClick={handleSubscribe}
