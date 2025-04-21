@@ -1,4 +1,3 @@
-// app/api/auth/refresh-token/route.ts
 import { NextResponse } from "next/server";
 import { generateUserTokenByPhone } from '@/utils/user-data';
 

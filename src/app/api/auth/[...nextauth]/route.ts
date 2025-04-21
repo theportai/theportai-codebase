@@ -28,9 +28,11 @@ export const authOptions: AuthOptions = {
         const otp = credentials.otp.trim();
 
         let user = await prisma.user.findUnique({ where: { phone } });
+        let isNewUser = false;
 
         if (!user) {
           // Create new user if not exists
+          isNewUser = true;
           user = await prisma.user.create({
             data: { 
               phone, 
@@ -50,7 +52,9 @@ export const authOptions: AuthOptions = {
         // Determine redirect path based on user status
         let redirectTo = "/dashboard";
         
-        if (user.kycStatus === "NOT_STARTED") {
+        if (isNewUser) {
+          redirectTo = "/welcome";
+        } else if (user.kycStatus === "NOT_STARTED") {
           redirectTo = "/kyc";
         } else if (user.kycStatus === "PENDING") {
           redirectTo = "/kyc-waiting";
@@ -68,6 +72,7 @@ export const authOptions: AuthOptions = {
           role: user.role,
           exchangeConnected: user.exchangeConnected,
           subscriptionActive: user.subscriptionActive,
+          isNewUser,
           redirectTo,
         };
       },
@@ -85,24 +90,8 @@ export const authOptions: AuthOptions = {
         token.role = user.role;
         token.exchangeConnected = user.exchangeConnected;
         token.subscriptionActive = user.subscriptionActive;
+        token.isNewUser = user.isNewUser;
         token.redirectTo = user.redirectTo;
-        
-        // Create our custom JWT token here as well
-        try {
-          const jwtToken = await signJwtToken({
-            id: user.id,
-            phone: user.phone,
-            email: user.email,
-            kycStatus: user.kycStatus,
-            exchangeConnected: user.exchangeConnected,
-            subscriptionActive: user.subscriptionActive,
-          });
-          
-          // Store the token to set in the cookies later
-          token.customJwt = jwtToken;
-        } catch (error) {
-          console.error("Error creating custom JWT:", error);
-        }
       }
       return token;
     },
@@ -117,14 +106,38 @@ export const authOptions: AuthOptions = {
         role: token.role as string,
         exchangeConnected: token.exchangeConnected as boolean,
         subscriptionActive: token.subscriptionActive as boolean,
+        isNewUser: token.isNewUser as boolean || false,
       };
       session.redirectTo = token.redirectTo as string;
       return session;
     },
 
-    // Set the cookie after signin
+    // Set the custom JWT cookie after signin
     async signIn({ user }) {
-      // We will handle this in the SignInForm component
+      try {
+        // Create custom JWT with complete user data
+        const jwtToken = await signJwtToken({
+          id: user.id,
+          phone: user.phone,
+          email: user.email,
+          kycStatus: user.kycStatus,
+          exchangeConnected: user.exchangeConnected,
+          subscriptionActive: user.subscriptionActive,
+          isNewUser: user.isNewUser || false,
+        });
+        
+        // Set the cookie using the Next.js cookies function
+        cookies().set("userToken", jwtToken, {
+          path: "/",
+          maxAge: 7 * 24 * 60 * 60, // 7 days
+          sameSite: "lax",
+          httpOnly: true, // For security
+        });
+      } catch (error) {
+        console.error("Error setting JWT cookie:", error);
+        // Continue with sign-in even if setting cookie fails
+      }
+      
       return true;
     }
   },

@@ -1,4 +1,3 @@
-// utils/user-data.ts
 import prisma from '@/lib/prisma.mjs';
 import { signJwtToken, JwtPayload } from './jwt';
 

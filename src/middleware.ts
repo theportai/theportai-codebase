@@ -1,15 +1,20 @@
-// src/middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyJwtToken } from "./utils/jwt";
 
 const PROTECTED_ROUTES = ["/dashboard", "/connect-exchange", "/kyc", "/kyc-waiting", "/pricing", "/welcome"];
-const PUBLIC_ROUTES = ["/login", "/signup", "/stripe-success"];
+const PUBLIC_ROUTES = ["/login", "/signup"];
+const BYPASS_ROUTES = ["/stripe-success", "/api/stripe-success"];
 
 const AUTH_PAGE = "/signup";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  
+  // Completely bypass middleware for specific routes
+  if (BYPASS_ROUTES.some(route => pathname === route || pathname.startsWith(route))) {
+    return NextResponse.next();
+  }
   
   const token = req.cookies.get("userToken")?.value || req.cookies.get("token")?.value;
   
@@ -33,19 +38,24 @@ export async function middleware(req: NextRequest) {
 
     try {
       // Use the data from token for navigation decisions
-      // This avoids Prisma database calls in middleware
-      const { kycStatus, exchangeConnected, subscriptionActive } = payload;
+      const { kycStatus, exchangeConnected, subscriptionActive, isNewUser } = payload;
       
       console.log(`Middleware check: ${pathname}, User status:`, {
         kycStatus,
         exchangeConnected,
-        subscriptionActive
+        subscriptionActive,
+        isNewUser
       });
       
-      // Handle KYC flow based on user status
+      // If the user is new and trying to access any route other than welcome, redirect to welcome
+      if (isNewUser === true && pathname !== "/welcome") {
+        return NextResponse.redirect(new URL("/welcome", req.url));
+      }
+      
+      // Handle normal user flow based on KYC status
       if (kycStatus === "NOT_STARTED") {
-        // If user hasn't started KYC and trying to access any protected route except KYC
-        if (pathname !== "/kyc" && !pathname.startsWith("/kyc/")) {
+        // If user hasn't started KYC and trying to access any protected route except KYC or welcome
+        if (pathname !== "/kyc" && !pathname.startsWith("/kyc/") && pathname !== "/welcome") {
           return NextResponse.redirect(new URL("/kyc", req.url));
         }
       } else if (kycStatus === "PENDING") {
@@ -60,19 +70,20 @@ export async function middleware(req: NextRequest) {
           if (pathname !== "/connect-exchange" && !pathname.startsWith("/connect-exchange/")) {
             return NextResponse.redirect(new URL("/connect-exchange", req.url));
           }
-        } else if (!subscriptionActive) {
-          // Exchange connected but no subscription
-          // Allow access to stripe-success as it's needed for payment completion
-          if (pathname !== "/pricing" && pathname !== "/stripe-success" && !pathname.startsWith("/stripe-success/")) {
-            return NextResponse.redirect(new URL("/pricing", req.url));
-          }
         } else {
-          // User has completed all required steps
-          // If they try to access earlier steps, redirect to dashboard
-          if ((pathname === "/pricing" || pathname === "/kyc" || pathname === "/kyc-waiting" || 
-              pathname === "/connect-exchange" || pathname === "/welcome") && 
-              pathname !== "/stripe-success" && !pathname.startsWith("/stripe-success/")) {
-            return NextResponse.redirect(new URL("/dashboard", req.url));
+          // Exchange is connected, now check subscription status
+          if (subscriptionActive === true) {
+            // If subscription is active and user tries to access earlier steps, redirect to dashboard
+            if ((pathname === "/pricing" || pathname === "/kyc" || pathname === "/kyc-waiting" || 
+                pathname === "/connect-exchange" || pathname === "/welcome")) {
+              return NextResponse.redirect(new URL("/dashboard", req.url));
+            }
+          } else {
+            // If subscription is not active (false or undefined), direct to pricing
+            // unless they're already on pricing page
+            if (pathname !== "/pricing") {
+              return NextResponse.redirect(new URL("/pricing", req.url));
+            }
           }
         }
       }
@@ -104,6 +115,7 @@ export const config = {
     "/login",
     "/signup",
     "/stripe-success",
-    "/stripe-success/:path*"
+    "/stripe-success/:path*",
+    "/api/stripe-success"
   ]
 };
