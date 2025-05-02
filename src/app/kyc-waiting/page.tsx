@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Loader2, AlertCircle, CheckCircle, RefreshCcw } from "lucide-react";
 
 export default function KYCWaitingPage() {
-  const router = useRouter();
   const [status, setStatus] = useState("PENDING");
   const [isLoading, setIsLoading] = useState(true);
   const [showAnimation, setShowAnimation] = useState(false);
@@ -21,7 +19,7 @@ export default function KYCWaitingPage() {
     timeInterval: null
   });
 
-  // Fetch KYC status
+  
   const checkStatus = async () => {
     try {
       if (redirectTriggered.current) {
@@ -64,29 +62,14 @@ export default function KYCWaitingPage() {
       if (newStatus !== status) {
         console.log("Status changed from", status, "to", newStatus);
         setStatus(newStatus);
-      }
-
-      // Handle approved status - need to redirect to connect-exchange
-      if (newStatus === "APPROVED" && !redirectTriggered.current) {
-        console.log("KYC APPROVED! Stopping intervals and preparing redirect...");
-        redirectTriggered.current = true;
-        setIsRedirecting(true);
         
-        // Clean up intervals to prevent conflicts
-        if (intervalRefs.current.statusInterval) {
-          clearInterval(intervalRefs.current.statusInterval);
+        // Handle approved status immediately when status changes
+        if (newStatus === "APPROVED" && !redirectTriggered.current) {
+          handleApproval();
         }
-        if (intervalRefs.current.timeInterval) {
-          clearInterval(intervalRefs.current.timeInterval);
-        }
-        
-        // Show approved state briefly before redirecting
-        setTimeout(() => {
-          console.log("EXECUTING REDIRECT to /connect-exchange");
-          document.location.href = "/connect-exchange";
-        }, 2000);
-        
-        return;
+      } else if (newStatus === "APPROVED" && !redirectTriggered.current) {
+        // Double-check: handle case where page loads with already approved status
+        handleApproval();
       }
 
       setIsLoading(false);
@@ -97,21 +80,43 @@ export default function KYCWaitingPage() {
     }
   };
 
-  const cleanupAndRedirect = (path) => {
+  // Separate function to handle approval for better organization
+  const handleApproval = () => {
+    console.log("KYC APPROVED! Stopping intervals and preparing redirect...");
+    redirectTriggered.current = true;
+    setIsRedirecting(true);
+    
     // Clean up intervals to prevent conflicts
+    cleanupIntervals();
+    
+    // Show approved state briefly before redirecting
+    setTimeout(() => {
+      console.log("EXECUTING REDIRECT to /connect-exchange");
+      window.location.href = "/connect-exchange";
+    }, 2000);
+  };
+
+  const cleanupIntervals = () => {
     if (intervalRefs.current.statusInterval) {
       clearInterval(intervalRefs.current.statusInterval);
+      intervalRefs.current.statusInterval = null;
     }
     if (intervalRefs.current.timeInterval) {
       clearInterval(intervalRefs.current.timeInterval);
+      intervalRefs.current.timeInterval = null;
     }
+  };
+
+  const cleanupAndRedirect = (path) => {
+    // Clean up intervals to prevent conflicts
+    cleanupIntervals();
     
     // Set redirect flag
     redirectTriggered.current = true;
     
     // Execute redirect
     console.log(`Redirecting to ${path}`);
-    document.location.href = path;
+    window.location.href = path;
   };
 
   const handleTryAgain = (e) => {
@@ -140,13 +145,13 @@ export default function KYCWaitingPage() {
       console.log("Performing initial status check");
       checkStatus();
 
-      // Set up polling every 8 seconds
+      // Set up polling every 5 seconds (reduced from 8s for quicker response)
       intervalRefs.current.statusInterval = setInterval(() => {
         if (!redirectTriggered.current) {
           console.log("Polling for status update");
           checkStatus();
         }
-      }, 8000);
+      }, 5000);
 
       // Update elapsed time counter every second
       intervalRefs.current.timeInterval = setInterval(() => {
@@ -161,12 +166,7 @@ export default function KYCWaitingPage() {
     // Cleanup function
     return () => {
       console.log("Component unmounting, cleaning up intervals");
-      if (intervalRefs.current.statusInterval) {
-        clearInterval(intervalRefs.current.statusInterval);
-      }
-      if (intervalRefs.current.timeInterval) {
-        clearInterval(intervalRefs.current.timeInterval);
-      }
+      cleanupIntervals();
     };
   }, []); // Empty dependency array so it only runs once
 

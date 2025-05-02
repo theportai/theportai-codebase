@@ -4,19 +4,56 @@ import { verifyJwtToken } from "./utils/jwt";
 
 const PROTECTED_ROUTES = ["/dashboard", "/connect-exchange", "/kyc", "/kyc-waiting", "/pricing", "/welcome"];
 const PUBLIC_ROUTES = ["/login", "/signup"];
-const BYPASS_ROUTES = ["/stripe-success", "/api/stripe-success"];
+const BYPASS_ROUTES = ["/stripe-success", "/api/stripe-success", "/api/otp", "/api/auth/refresh-token"];
 
 const AUTH_PAGE = "/signup";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   
+  // Add debug logging in production
+  console.log(`Middleware processing: ${pathname}`);
+  
+  // Get all cookies we might need
+  const token = req.cookies.get("userToken")?.value || req.cookies.get("token")?.value;
+  const postAuthAction = req.cookies.get("postAuthAction")?.value === "true";
+  const paymentSuccess = req.cookies.get("paymentSuccess")?.value === "true";
+  
+  // Check if there's a payment success flag in URL (our backup mechanism)
+  const isPaymentSuccessURL = req.nextUrl.searchParams.get("payment") === "success";
+  
   // Completely bypass middleware for specific routes
   if (BYPASS_ROUTES.some(route => pathname === route || pathname.startsWith(route))) {
+    console.log(`Bypassing middleware for ${pathname}`);
     return NextResponse.next();
   }
   
-  const token = req.cookies.get("userToken")?.value || req.cookies.get("token")?.value;
+  // Special handling for post-payment flows
+  if ((paymentSuccess || isPaymentSuccessURL) && token && pathname !== "/dashboard") {
+    console.log("Payment success detected, redirecting to dashboard");
+    const response = NextResponse.redirect(new URL("/dashboard", req.url));
+    // Clean up the cookies
+    if (paymentSuccess) {
+      response.cookies.delete("paymentSuccess");
+    }
+    return response;
+  }
+  
+  // Special case for handling post-login redirects
+  if (postAuthAction && token) {
+    // For users coming from OTP verification or payment, check their status
+    const payload = await verifyJwtToken(token);
+    if (payload) {
+      const { redirectTo } = payload;
+      
+      console.log(`Post-Auth Middleware check: ${pathname}, Redirecting to: ${redirectTo}`);
+      
+      // Clear the post-auth cookie as we're handling the redirect now
+      const response = NextResponse.redirect(new URL(redirectTo || "/dashboard", req.url));
+      response.cookies.delete("postAuthAction");
+      return response;
+    }
+  }
   
   // Handle protected routes
   if (PROTECTED_ROUTES.some(route => pathname === route || pathname.startsWith(route))) {
@@ -38,24 +75,48 @@ export async function middleware(req: NextRequest) {
 
     try {
       // Use the data from token for navigation decisions
-      const { kycStatus, exchangeConnected, subscriptionActive, isNewUser } = payload;
+      const { kycStatus, exchangeConnected, subscriptionActive, isNewUser, paymentSuccess } = payload;
       
       console.log(`Middleware check: ${pathname}, User status:`, {
         kycStatus,
         exchangeConnected,
         subscriptionActive,
-        isNewUser
+        isNewUser,
+        paymentSuccess
       });
       
-      // If the user is new and trying to access any route other than welcome, redirect to welcome
-      if (isNewUser === true && pathname !== "/welcome") {
-        return NextResponse.redirect(new URL("/welcome", req.url));
+      // Special case: If this is immediately after payment and trying to access dashboard
+      if (paymentSuccess === true && pathname === "/dashboard") {
+        // Allow direct access to dashboard
+        return NextResponse.next();
+      }
+      
+      // FIXED: Allow users to go from welcome page to KYC
+      // Special case for welcome to KYC flow
+      if (isNewUser === true && pathname === "/kyc") {
+        console.log("New user accessing KYC from welcome page - allowing");
+        return NextResponse.next();
+      }
+      
+      // FIXED: Priority for new users - welcome page first
+      if (isNewUser === true) {
+        if (pathname !== "/welcome") {
+          return NextResponse.redirect(new URL("/welcome", req.url));
+        } else {
+          // Already on welcome page, proceed
+          return NextResponse.next();
+        }
       }
       
       // Handle normal user flow based on KYC status
       if (kycStatus === "NOT_STARTED") {
-        // If user hasn't started KYC and trying to access any protected route except KYC or welcome
-        if (pathname !== "/kyc" && !pathname.startsWith("/kyc/") && pathname !== "/welcome") {
+        // If user hasn't started KYC and trying to access any protected route except welcome
+        // FIXED: Give priority to welcome page over kyc
+        if (pathname === "/welcome") {
+          // Let them stay on welcome if that's where they need to be
+          return NextResponse.next();
+        } else if (pathname !== "/kyc" && !pathname.startsWith("/kyc/")) {
+          // Only redirect to KYC if they're not already there and not on welcome
           return NextResponse.redirect(new URL("/kyc", req.url));
         }
       } else if (kycStatus === "PENDING") {
@@ -99,7 +160,7 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-// Update matcher to include all required paths
+// Update matcher to include all required paths and the dashboard query param
 export const config = {
   matcher: [
     "/dashboard", 
@@ -115,7 +176,6 @@ export const config = {
     "/login",
     "/signup",
     "/stripe-success",
-    "/stripe-success/:path*",
-    "/api/stripe-success"
+    "/stripe-success/:path*"
   ]
 };

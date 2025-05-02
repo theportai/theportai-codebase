@@ -10,13 +10,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Phone is required" }, { status: 400 });
     }
 
-    // Generate fresh token with latest user data
     const token = await generateUserTokenByPhone(phone);
     
-    // Set the cookie and return success
+    if (!token) {
+      return NextResponse.json({ error: "Failed to generate token" }, { status: 500 });
+    }
+    
     const response = NextResponse.json({ success: true });
     
-    response.cookies.set("userToken", token, {
+    response.cookies.set({
+      name: "userToken",
+      value: token,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: "/",

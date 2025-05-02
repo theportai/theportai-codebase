@@ -59,48 +59,110 @@ export async function GET(req: Request) {
 
             console.log("User subscription updated for phone:", phone);
 
-            // Create HTML response with JavaScript that will:
-            // 1. Call refresh-token API
-            // 2. Then redirect to dashboard
+            // Generate a token with the updated subscription status
+            const token = await signJwtToken({
+                id: user.id,
+                phone: user.phone,
+                email: user.email,
+                kycStatus: user.kycStatus as string,
+                exchangeConnected: user.exchangeConnected as boolean,
+                subscriptionActive: true, // Explicitly set to true
+                isNewUser: false,
+                redirectTo: "/dashboard",
+                paymentSuccess: true,
+                postAuthAction: true
+            });
+
+            // Create HTML response with proper cookie settings and script fixes
             return new Response(
                 `
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <title>Payment Successful</title>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                        body {
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                            background: linear-gradient(to bottom, #0f172a, #1e293b);
+                            color: white;
+                            height: 100vh;
+                            margin: 0;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                            text-align: center;
+                            padding: 0 20px;
+                        }
+                        .card {
+                            background: rgba(30, 41, 59, 0.8);
+                            border-radius: 16px;
+                            padding: 32px;
+                            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+                            backdrop-filter: blur(5px);
+                            border: 1px solid rgba(255, 255, 255, 0.1);
+                            max-width: 500px;
+                            width: 100%;
+                        }
+                        h1 {
+                            margin-top: 0;
+                            color: #38bdf8;
+                        }
+                        .loader {
+                            display: inline-block;
+                            width: 50px;
+                            height: 50px;
+                            border: 3px solid rgba(255, 255, 255, .3);
+                            border-radius: 50%;
+                            border-top-color: #38bdf8;
+                            animation: spin 1s ease-in-out infinite;
+                            margin: 20px 0;
+                        }
+                        @keyframes spin {
+                            to { transform: rotate(360deg); }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <h1>Payment Successful!</h1>
+                        <p>Thank you for subscribing to PortAI Pro.</p>
+                        <div class="loader"></div>
+                        <p>Updating your account and redirecting you to the dashboard...</p>
+                    </div>
+                    
                     <script>
-                        // Function to handle redirect after token refresh
-                        async function refreshAndRedirect() {
+                        // This function will set cookies and then redirect
+                        function processSuccess() {
                             try {
-                                // Call the refresh token endpoint
-                                const response = await fetch('/api/auth/refresh-token?phone=${phone}');
+                                // Set cookie with proper formatting
+                                document.cookie = "userToken=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax; ${
+                                    process.env.NODE_ENV === 'production' ? 'Secure;' : ''
+                                }";
                                 
-                                if (response.ok) {
-                                    console.log('Token refreshed successfully');
-                                    // Redirect to dashboard
-                                    window.location.href = '/dashboard';
-                                } else {
-                                    console.error('Failed to refresh token');
-                                    setTimeout(() => {
-                                        window.location.href = '/dashboard';
-                                    }, 2000);
-                                }
-                            } catch (error) {
-                                console.error('Error during token refresh:', error);
-                                // Fallback redirect after error
-                                setTimeout(() => {
-                                    window.location.href = '/dashboard';
-                                }, 2000);
+                                document.cookie = "postAuthAction=true; path=/; max-age=60; SameSite=Lax; ${
+                                    process.env.NODE_ENV === 'production' ? 'Secure;' : ''
+                                }";
+                                
+                                document.cookie = "paymentSuccess=true; path=/; max-age=60; SameSite=Lax; ${
+                                    process.env.NODE_ENV === 'production' ? 'Secure;' : ''
+                                }";
+                                
+                                console.log("Cookies set, now redirecting...");
+                                
+                                // Force reload to ensure cookies are properly processed
+                                window.location.href = '/dashboard?payment=success';
+                            } catch (err) {
+                                console.error("Error setting cookies:", err);
+                                // Fallback redirect
+                                window.location.href = '/dashboard';
                             }
                         }
                         
-                        // Call the function when page loads
-                        window.onload = refreshAndRedirect;
+                        // Give a slight delay to ensure browser has time to process everything
+                        setTimeout(processSuccess, 1500);
                     </script>
-                </head>
-                <body>
-                    <h1>Payment Successful!</h1>
-                    <p>Updating your account and redirecting you to the dashboard...</p>
                 </body>
                 </html>
                 `,
@@ -108,6 +170,18 @@ export async function GET(req: Request) {
                     status: 200,
                     headers: {
                         "Content-Type": "text/html",
+                        // Set the token as an HTTP cookie as well (belt and suspenders approach)
+                        "Set-Cookie": [
+                            `userToken=${token}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax; ${
+                                process.env.NODE_ENV === 'production' ? 'Secure;' : ''
+                            }`,
+                            `postAuthAction=true; Path=/; Max-Age=60; SameSite=Lax; ${
+                                process.env.NODE_ENV === 'production' ? 'Secure;' : ''
+                            }`,
+                            `paymentSuccess=true; Path=/; Max-Age=60; SameSite=Lax; ${
+                                process.env.NODE_ENV === 'production' ? 'Secure;' : ''
+                            }`
+                        ]
                     },
                 }
             );
