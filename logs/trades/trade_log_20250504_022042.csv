@@ -1,0 +1,2 @@
+timestamp,symbol,action,price,confidence,correct,total_trades,accuracy,rolling_accuracy
+2025-05-04 02:21:02,BTCUSDT,hold,96366.79,0.0,True,0,100.0,

@@ -1,0 +1,3 @@
+timestamp,symbol,action,price,confidence,correct,total_trades,accuracy,rolling_accuracy
+2025-05-04 00:48:01,BTCUSDT,hold,96241.79,0.0,True,0,100.0,
+2025-05-04 00:48:02,ETHUSDT,buy,1830.51,0.0,False,0,0.0,
