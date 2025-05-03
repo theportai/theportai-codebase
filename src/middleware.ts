@@ -4,20 +4,24 @@ import { verifyJwtToken } from "./utils/jwt";
 
 const PROTECTED_ROUTES = ["/dashboard", "/connect-exchange", "/kyc", "/kyc-waiting", "/pricing", "/welcome"];
 const PUBLIC_ROUTES = ["/login", "/signup"];
-const BYPASS_ROUTES = ["/stripe-success", "/api/stripe-success", "/api/otp", "/api/auth/refresh-token"];
+const BYPASS_ROUTES = ["/stripe-success", "/api/stripe-success", "/api/otp", "/api/auth/refresh-token", "/api/user-status"];
 
 const AUTH_PAGE = "/signup";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   
-  // Add debug logging in production
+  
   console.log(`Middleware processing: ${pathname}`);
   
   // Get all cookies we might need
   const token = req.cookies.get("userToken")?.value || req.cookies.get("token")?.value;
   const postAuthAction = req.cookies.get("postAuthAction")?.value === "true";
   const paymentSuccess = req.cookies.get("paymentSuccess")?.value === "true";
+  const forceRedirect = req.cookies.get("forceRedirect")?.value;
+  
+  // CRITICAL FIX: Check for special bypass cookie that indicates a real KYC approval
+  const kycApproved = req.cookies.get("kycApproved")?.value === "true";
   
   // Check if there's a payment success flag in URL (our backup mechanism)
   const isPaymentSuccessURL = req.nextUrl.searchParams.get("payment") === "success";
@@ -37,6 +41,60 @@ export async function middleware(req: NextRequest) {
       response.cookies.delete("paymentSuccess");
     }
     return response;
+  }
+  
+  // CRITICAL FIX: Handle KYC approval override
+  // This takes precedence over token data when we know the user has a fresh KYC approval
+  if (kycApproved && forceRedirect === "/connect-exchange" && pathname !== "/connect-exchange") {
+    console.log("KYC override detected - allowing redirect to connect-exchange");
+    const response = NextResponse.redirect(new URL("/connect-exchange", req.url));
+    // Keep the kycApproved cookie but remove forceRedirect to prevent loops
+    response.cookies.delete("forceRedirect");
+    return response;
+  }
+  
+  // Handle force redirect if present (used by frontend for critical redirects)
+  if (forceRedirect && token) {
+    console.log(`Force redirect detected to: ${forceRedirect}`);
+    
+    // CRITICAL FIX: Check redirect destination against user status to prevent loops
+    const payload = await verifyJwtToken(token);
+    if (payload) {
+      // Extract user status from token
+      const { kycStatus } = payload;
+      
+      // If trying to go to connect-exchange but KYC is not approved in token
+      if (forceRedirect === "/connect-exchange" && kycStatus !== "APPROVED") {
+        console.log("Potential redirect loop detected. Checking if it's from kyc-waiting...");
+        
+        // If coming from kyc-waiting, this might be a real approval that the token doesn't know about yet
+        const referer = req.headers.get("referer") || "";
+        if (referer.includes("/kyc-waiting")) {
+          console.log("Coming from kyc-waiting - setting override cookie and proceeding with redirect");
+          const response = NextResponse.redirect(new URL(forceRedirect, req.url));
+          // Set a special override cookie with short expiry
+          response.cookies.set("kycApproved", "true", { 
+            path: "/", 
+            maxAge: 60, // 1 minute expiry
+            httpOnly: true,
+            sameSite: "strict" 
+          });
+          response.cookies.delete("forceRedirect");
+          return response;
+        } else {
+          // Not coming from kyc-waiting, might be a stale redirect attempt
+          console.log("Blocking potential redirect loop - clearing cookies");
+          const response = NextResponse.redirect(new URL("/kyc-waiting", req.url));
+          response.cookies.delete("forceRedirect");
+          return response;
+        }
+      }
+
+      // Normal force redirect processing - no issues detected
+      const response = NextResponse.redirect(new URL(forceRedirect, req.url));
+      response.cookies.delete("forceRedirect");
+      return response;
+    }
   }
   
   // Special case for handling post-login redirects
@@ -85,20 +143,23 @@ export async function middleware(req: NextRequest) {
         paymentSuccess
       });
       
+      // CRITICAL FIX: If kycApproved cookie is set, treat user as having APPROVED status
+      // This lets fresh API approvals override the token data temporarily
+      const effectiveKycStatus = kycApproved ? "APPROVED" : kycStatus;
+      
       // Special case: If this is immediately after payment and trying to access dashboard
       if (paymentSuccess === true && pathname === "/dashboard") {
         // Allow direct access to dashboard
         return NextResponse.next();
       }
       
-      // FIXED: Allow users to go from welcome page to KYC
       // Special case for welcome to KYC flow
       if (isNewUser === true && pathname === "/kyc") {
         console.log("New user accessing KYC from welcome page - allowing");
         return NextResponse.next();
       }
       
-      // FIXED: Priority for new users - welcome page first
+      // Priority for new users - welcome page first
       if (isNewUser === true) {
         if (pathname !== "/welcome") {
           return NextResponse.redirect(new URL("/welcome", req.url));
@@ -108,27 +169,20 @@ export async function middleware(req: NextRequest) {
         }
       }
       
-      // Handle normal user flow based on KYC status
-      if (kycStatus === "NOT_STARTED") {
-        // If user hasn't started KYC and trying to access any protected route except welcome
-        // FIXED: Give priority to welcome page over kyc
-        if (pathname === "/welcome") {
-          // Let them stay on welcome if that's where they need to be
+      // CRITICAL FIX: Handle KYC APPROVED state first to ensure proper flow
+      // Now using effectiveKycStatus which might be overridden by cookie
+      if (effectiveKycStatus === "APPROVED") {
+        // If on connect-exchange page with APPROVED status (real or temporary), always allow
+        if (pathname === "/connect-exchange") {
+          console.log("KYC APPROVED user accessing connect-exchange - allowing");
           return NextResponse.next();
-        } else if (pathname !== "/kyc" && !pathname.startsWith("/kyc/")) {
-          // Only redirect to KYC if they're not already there and not on welcome
-          return NextResponse.redirect(new URL("/kyc", req.url));
         }
-      } else if (kycStatus === "PENDING") {
-        // If KYC is pending, user should be on kyc-waiting
-        if (pathname !== "/kyc-waiting" && !pathname.startsWith("/kyc-waiting/")) {
-          return NextResponse.redirect(new URL("/kyc-waiting", req.url));
-        }
-      } else if (kycStatus === "APPROVED") {
+        
         // KYC is approved, check exchange connection
         if (!exchangeConnected) {
           // If exchange not connected and user not on connect-exchange page
           if (pathname !== "/connect-exchange" && !pathname.startsWith("/connect-exchange/")) {
+            console.log("KYC APPROVED but exchange not connected - redirecting to connect-exchange");
             return NextResponse.redirect(new URL("/connect-exchange", req.url));
           }
         } else {
@@ -146,6 +200,34 @@ export async function middleware(req: NextRequest) {
               return NextResponse.redirect(new URL("/pricing", req.url));
             }
           }
+        }
+      } 
+      // Handle other KYC states
+      else if (kycStatus === "NOT_STARTED") {
+        // If user hasn't started KYC and trying to access any protected route except welcome
+        if (pathname === "/welcome") {
+          // Let them stay on welcome if that's where they need to be
+          return NextResponse.next();
+        } else if (pathname !== "/kyc" && !pathname.startsWith("/kyc/")) {
+          // Only redirect to KYC if they're not already there and not on welcome
+          return NextResponse.redirect(new URL("/kyc", req.url));
+        }
+      } else if (kycStatus === "PENDING") {
+        // CRITICAL FIX: Special case - if coming from connect-exchange to kyc-waiting, this is likely a redirect loop
+        // Allow staying on kyc-waiting to break the loop
+        if (pathname === "/kyc-waiting") {
+          console.log("KYC PENDING - allowing to stay on kyc-waiting");
+          
+          // Clear any problematic cookies to prevent further loops
+          const response = NextResponse.next();
+          response.cookies.delete("forceRedirect");
+          return response;
+        }
+        
+        // If KYC is pending and not on kyc-waiting, redirect there
+        if (pathname !== "/kyc-waiting" && !pathname.startsWith("/kyc-waiting/")) {
+          console.log("KYC PENDING - redirecting to kyc-waiting");
+          return NextResponse.redirect(new URL("/kyc-waiting", req.url));
         }
       }
       

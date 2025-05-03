@@ -12,16 +12,18 @@ export default function KYCWaitingPage() {
   const [error, setError] = useState("");
   const [isRedirecting, setIsRedirecting] = useState(false);
   
-  // Use refs to track if we've already triggered redirects
+  // Use ref to track if redirect has been triggered
   const redirectTriggered = useRef(false);
-  const intervalRefs = useRef({
+  const statusCheckedInitially = useRef(false);
+  const intervalRefs = useRef({ 
     statusInterval: null,
     timeInterval: null
   });
 
-  
+  // Enhanced status check function with improved error handling and logging
   const checkStatus = async () => {
     try {
+      // Skip if redirect already triggered
       if (redirectTriggered.current) {
         console.log("Redirect already triggered, skipping status check");
         return;
@@ -29,9 +31,10 @@ export default function KYCWaitingPage() {
 
       setIsLoading(true);
       
+      // Check for phone in localStorage
       const phone = localStorage.getItem("userPhone");
       if (!phone) {
-        console.log("No phone found in localStorage, redirecting to signup");
+        console.error("No phone found in localStorage, redirecting to signup");
         cleanupAndRedirect("/signup");
         return;
       }
@@ -42,9 +45,11 @@ export default function KYCWaitingPage() {
       const timestamp = new Date().getTime();
       const response = await fetch(`/api/user-status?phone=${encodeURIComponent(phone)}&t=${timestamp}`, {
         cache: "no-store",
+        method: "GET", // Explicitly set method
         headers: {
           "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Pragma": "no-cache"
+          "Pragma": "no-cache",
+          "Expires": "0"
         }
       });
       
@@ -59,16 +64,25 @@ export default function KYCWaitingPage() {
       const newStatus = data.kycStatus || "PENDING";
       console.log("Current status:", status, "New status:", newStatus);
       
+      // Track that we've performed the initial status check
+      statusCheckedInitially.current = true;
+      
+      // Handle status change
       if (newStatus !== status) {
         console.log("Status changed from", status, "to", newStatus);
+        
+        // Update state with new status
         setStatus(newStatus);
         
-        // Handle approved status immediately when status changes
-        if (newStatus === "APPROVED" && !redirectTriggered.current) {
+        // Handle approved status
+        if (newStatus === "APPROVED") {
+          console.log("KYC APPROVED detected from status change");
           handleApproval();
         }
-      } else if (newStatus === "APPROVED" && !redirectTriggered.current) {
-        // Double-check: handle case where page loads with already approved status
+      } 
+      // Handle case where status is already approved on first load
+      else if (newStatus === "APPROVED" && !redirectTriggered.current) {
+        console.log("KYC already APPROVED, handling approval");
         handleApproval();
       }
 
@@ -80,8 +94,13 @@ export default function KYCWaitingPage() {
     }
   };
 
-  // Separate function to handle approval for better organization
+  // Improved approval handler with better logging and cookie-based forced redirect
   const handleApproval = () => {
+    if (redirectTriggered.current) {
+      console.log("Approval handler already triggered, skipping");
+      return;
+    }
+    
     console.log("KYC APPROVED! Stopping intervals and preparing redirect...");
     redirectTriggered.current = true;
     setIsRedirecting(true);
@@ -89,14 +108,39 @@ export default function KYCWaitingPage() {
     // Clean up intervals to prevent conflicts
     cleanupIntervals();
     
+    // Set a cookie to force redirect at middleware level
+    // This ensures the redirect happens even if client-side navigation is blocked
+    document.cookie = "forceRedirect=/connect-exchange; path=/; max-age=30";
+    
     // Show approved state briefly before redirecting
+    console.log("Setting redirect timeout to /connect-exchange");
+    
+    // Try multiple redirect approaches to ensure one works
     setTimeout(() => {
       console.log("EXECUTING REDIRECT to /connect-exchange");
-      window.location.href = "/connect-exchange";
-    }, 2000);
+      
+      try {
+        // Approach 1: window.location.replace - most forceful
+        window.location.replace("/connect-exchange");
+        
+        // Approach 2: As backup, also try standard href navigation
+        setTimeout(() => {
+          if (document.location.pathname !== "/connect-exchange") {
+            console.log("Fallback redirect via href");
+            window.location.href = "/connect-exchange";
+          }
+        }, 500);
+      } catch (e) {
+        console.error("Error during redirect:", e);
+        // Last resort - reload the page, middleware should handle redirect
+        window.location.reload();
+      }
+    }, 1500);
   };
 
+  // Clean up function for intervals
   const cleanupIntervals = () => {
+    console.log("Cleaning up intervals");
     if (intervalRefs.current.statusInterval) {
       clearInterval(intervalRefs.current.statusInterval);
       intervalRefs.current.statusInterval = null;
@@ -107,6 +151,7 @@ export default function KYCWaitingPage() {
     }
   };
 
+  // Enhanced redirect function with cookie support
   const cleanupAndRedirect = (path) => {
     // Clean up intervals to prevent conflicts
     cleanupIntervals();
@@ -114,9 +159,14 @@ export default function KYCWaitingPage() {
     // Set redirect flag
     redirectTriggered.current = true;
     
+    // Set a cookie to force redirect at middleware level
+    document.cookie = `forceRedirect=${path}; path=/; max-age=30`;
+    
     // Execute redirect
     console.log(`Redirecting to ${path}`);
-    window.location.href = path;
+    
+    // Force a hard navigation
+    window.location.replace(path);
   };
 
   const handleTryAgain = (e) => {
@@ -145,13 +195,13 @@ export default function KYCWaitingPage() {
       console.log("Performing initial status check");
       checkStatus();
 
-      // Set up polling every 5 seconds (reduced from 8s for quicker response)
+      // Set up polling every 3 seconds (reduced from 5s for quicker response)
       intervalRefs.current.statusInterval = setInterval(() => {
         if (!redirectTriggered.current) {
           console.log("Polling for status update");
           checkStatus();
         }
-      }, 5000);
+      }, 3000);
 
       // Update elapsed time counter every second
       intervalRefs.current.timeInterval = setInterval(() => {
@@ -183,6 +233,14 @@ export default function KYCWaitingPage() {
     console.log("Manual refresh clicked");
     checkStatus();
   };
+
+  // Check if we're already on connect-exchange - handle redirect loops
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.pathname === '/connect-exchange') {
+      console.log("Already on connect-exchange page, cleaning up intervals");
+      cleanupIntervals();
+    }
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white px-4 py-8">
@@ -329,7 +387,7 @@ export default function KYCWaitingPage() {
                 Try Again → Go to KYC Form
               </a>
             )}
-            {status === "APPROVED" && !isRedirecting && (
+            {status === "APPROVED" && (
               <a
                 href="/connect-exchange"
                 onClick={(e) => {
@@ -355,6 +413,20 @@ export default function KYCWaitingPage() {
             Need help? <a href="/support" className="text-blue-400 hover:underline">Contact Support</a>
           </p>
         </motion.div>
+        
+        {/* Hidden Force Redirect for APPROVED state */}
+        {status === "APPROVED" && (
+          <iframe 
+            src="/connect-exchange" 
+            style={{ display: 'none' }} 
+            title="redirect-frame"
+            onLoad={() => {
+              if (!redirectTriggered.current) {
+                handleApproval();
+              }
+            }}
+          />
+        )}
       </motion.div>
     </div>
   );
