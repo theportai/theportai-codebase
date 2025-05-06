@@ -11,3 +11,7 @@ timestamp,event_type,agent,details
 2025-04-06 22:25:09,dashboard_login,sentiment_agent,Streamlit dashboard accessed
 2025-04-06 22:31:22,dashboard_login,sentiment_agent,Streamlit dashboard accessed
 2025-04-10 13:41:11,dashboard_login,sentiment_agent,Streamlit dashboard accessed
+2025-05-04 16:36:04,token_generated,dashboard_client,Token generated for dashboard_client
+2025-05-04 19:16:39,token_generated,dashboard_client,Token generated for dashboard_client
+2025-05-04 19:16:39,token_generated,dashboard_client,Token generated for dashboard_client
+2025-05-04 19:29:00,token_generated,dashboard_client,Token generated for dashboard_client

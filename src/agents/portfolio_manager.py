@@ -4,13 +4,11 @@ from datetime import datetime
 from src.utils.enhance_trade_logging import TradeLogger
 from src.core.vault import Vault
 from src.utils.binance_executor import execute_order
-from src.utils.binance_executor import get_binance_balances,round_step_size
+from src.utils.binance_executor import get_binance_balances, round_step_size
 import math
 import time
 
-
 vault = Vault()
-
 
 # ✅ Step sizes per asset (from Binance exchange info)
 STEP_SIZE_MAP = {
@@ -72,9 +70,8 @@ class PortfolioManager:
 
     def log_summary(self):
         print("📊 Final Portfolio Summary:")
-        for symbol, asset in self.asset_dict.items():
+        for symbol, asset in self.assets.items():
             print(f"{symbol} → Balance: {asset.balance:.2f}, PnL: {asset.pnl:.2f}, Trades: {asset.trade_count}, Wins: {asset.win_count}")
-
 
     def calculate_quantity(self, symbol, price, capital_fraction=1.0):
         symbol = symbol.upper()
@@ -88,7 +85,6 @@ class PortfolioManager:
             return 0.0
 
         # ✅ Round properly to prevent Binance step size rejection
-        #step_size = 0.00001  # You can later fetch per-symbol
         step_size = STEP_SIZE_MAP.get(symbol, 0.001)        
         quantity = round_step_size(raw_quantity, step_size)
         return quantity
@@ -238,7 +234,6 @@ class PortfolioManager:
             return False
 
     def get_portfolio_value(self, symbol):
-        #asset = self.assets[symbol]
         symbol = symbol.upper()
         asset = self.assets[symbol]
         price = self.prices.get(symbol, asset.last_price)
@@ -253,7 +248,6 @@ class PortfolioManager:
         for symbol, asset in self.assets.items():
             price = self.prices.get(symbol, asset.last_price)
             value = asset.balance + (asset.holdings * price)
-            #pnl = value - 10000  # Default initial balance
             pnl = value - asset.initial_balance if hasattr(asset, "initial_balance") else value - 10000
             accuracy = (asset.winning_trades / asset.total_trades) * 100 if asset.total_trades > 0 else 0.0
 
@@ -290,7 +284,6 @@ class PortfolioManager:
             for symbol, asset in self.assets.items():
                 price = self.prices.get(symbol, asset.last_price)
                 value = asset.balance + (asset.holdings * price)
-                #pnl = value - 10000
                 pnl = value - asset.initial_balance if hasattr(asset, "initial_balance") else value - 10000
                 accuracy = (asset.winning_trades / asset.total_trades) * 100 if asset.total_trades > 0 else 0.0
 
@@ -303,6 +296,7 @@ class PortfolioManager:
                     asset.total_trades,
                     round(accuracy, 2)
                 ])
+        return snapshot_file  # Return the file path
 
     def save_portfolio_snapshot(self):
-        self.save_snapshot()
+        return self.save_snapshot()  # Return the path from save_snapshot

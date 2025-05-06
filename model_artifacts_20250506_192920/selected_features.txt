@@ -1,0 +1,14 @@
+macd_signal
+trend_strength
+atr_14
+volatility_14
+rsi_14
+price_momentum
+volume_ma_ratio
+volume_price_trend
+volume_divergence
+price_sma_ratio
+bb_width
+pivot_proximity
+sma_20_50_cross
+sma_50_200_cross

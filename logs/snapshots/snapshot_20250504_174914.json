@@ -1,0 +1,29 @@
+{
+  "timestamp": "20250504_174914",
+  "assets": {
+    "BTCUSDT": {
+      "balance": 0.31550714,
+      "holdings": 0.00022977,
+      "pnl": -9999.68,
+      "total_trades": 0,
+      "winning_trades": 0,
+      "daily_pnl": 0.0
+    },
+    "ETHUSDT": {
+      "balance": 0.31550714,
+      "holdings": 0.000689,
+      "pnl": -9999.68,
+      "total_trades": 0,
+      "winning_trades": 0,
+      "daily_pnl": 0.0
+    },
+    "SOLUSDT": {
+      "balance": 0.31550714,
+      "holdings": 0.0,
+      "pnl": -9999.68,
+      "total_trades": 0,
+      "winning_trades": 0,
+      "daily_pnl": 0.0
+    }
+  }
+}

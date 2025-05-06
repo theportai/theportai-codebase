@@ -1,0 +1,206 @@
+2025-05-06 15:09:04,513 - PortAI-Train-XGBoost - INFO - Fetching historical candles...
+2025-05-06 15:09:04,596 - PortAI-Train-XGBoost - ERROR - No data retrieved from database.
+2025-05-06 15:32:09,954 - PortAI-Train-XGBoost - INFO - Fetching historical candles from Binance...
+2025-05-06 15:32:09,954 - PortAI-Train-XGBoost - ERROR - Failed to fetch data from Binance: Binance API key or secret not found in environment variables.
+Traceback (most recent call last):
+  File "/Users/theadityanathmishra/Next_Unicorn/portai-codebade/src/ml/train_xgboost_model.py", line 51, in get_ohlcv_from_binance
+    raise ValueError("Binance API key or secret not found in environment variables.")
+ValueError: Binance API key or secret not found in environment variables.
+2025-05-06 15:32:09,954 - PortAI-Train-XGBoost - WARNING - Failed to fetch data from Binance, attempting to use database...
+2025-05-06 15:32:10,045 - PortAI-Train-XGBoost - ERROR - No data retrieved from database either.
+2025-05-06 16:01:48,968 - PortAI-Train-XGBoost - INFO - Fetching historical candles from Binance...
+2025-05-06 16:01:49,281 - PortAI-Train-XGBoost - INFO - Fetching historical data for BTCUSDT from Binance...
+2025-05-06 16:01:56,061 - PortAI-Train-XGBoost - INFO - Fetched 20000 historical candles for BTCUSDT from Binance.
+2025-05-06 16:01:56,084 - PortAI-Train-XGBoost - INFO - Creating advanced features...
+2025-05-06 16:01:56,100 - PortAI-Train-XGBoost - ERROR - Training failed: 'timestamp'
+Traceback (most recent call last):
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/pandas/core/indexes/base.py", line 3805, in get_loc
+    return self._engine.get_loc(casted_key)
+  File "index.pyx", line 167, in pandas._libs.index.IndexEngine.get_loc
+  File "index.pyx", line 196, in pandas._libs.index.IndexEngine.get_loc
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7081, in pandas._libs.hashtable.PyObjectHashTable.get_item
+  File "pandas/_libs/hashtable_class_helper.pxi", line 7089, in pandas._libs.hashtable.PyObjectHashTable.get_item
+KeyError: 'timestamp'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/theadityanathmishra/Next_Unicorn/portai-codebade/src/ml/train_xgboost_model.py", line 590, in train_advanced_xgboost_model
+    X, y = generate_features_labels(enriched)
+  File "/Users/theadityanathmishra/Next_Unicorn/portai-codebade/src/ml/feature_engineering.py", line 27, in generate_features_labels
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/pandas/core/frame.py", line 4102, in __getitem__
+    indexer = self.columns.get_loc(key)
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/pandas/core/indexes/base.py", line 3812, in get_loc
+    raise KeyError(key) from err
+KeyError: 'timestamp'
+2025-05-06 16:04:58,144 - PortAI-Train-XGBoost - INFO - Fetching historical candles from Binance...
+2025-05-06 16:04:58,440 - PortAI-Train-XGBoost - INFO - Fetching historical data for BTCUSDT from Binance...
+2025-05-06 16:05:05,263 - PortAI-Train-XGBoost - INFO - Fetched 20000 historical candles for BTCUSDT from Binance.
+2025-05-06 16:05:05,286 - PortAI-Train-XGBoost - INFO - Creating advanced features...
+2025-05-06 16:05:15,959 - PortAI-Train-XGBoost - WARNING - Could not extract time features: 'DatetimeIndex' object has no attribute 'is_all_dates'
+2025-05-06 16:05:15,962 - PortAI-Train-XGBoost - INFO - Features: (19981, 27) | Labels: 19981
+2025-05-06 16:05:15,962 - PortAI-Train-XGBoost - INFO - Feature names: ['momentum', 'sma_diff', 'rsi', 'macd', 'macd_signal', 'trend_strength', 'atr_14', 'volatility_14', 'volatility_ratio', 'rsi_14', 'price_momentum', 'volume_change', 'volume_ma_ratio', 'volume_price_trend', 'volume_divergence', 'body_size', 'upper_shadow', 'lower_shadow', 'close_position', 'price_sma_ratio', 'bollinger_position', 'bb_width', 'pivot_proximity', 'sma_20_50_cross', 'sma_50_200_cross', 'hour', 'day_of_week']
+2025-05-06 16:05:15,963 - PortAI-Train-XGBoost - INFO - Class distribution: {-1.0: 9802, 0.0: 3, 1.0: 10176}
+2025-05-06 16:05:15,963 - PortAI-Train-XGBoost - WARNING - Class with few samples detected: 3. This may affect model performance.
+2025-05-06 16:05:15,966 - PortAI-Train-XGBoost - ERROR - Training failed: Input X contains infinity or a value too large for dtype('float64').
+Traceback (most recent call last):
+  File "/Users/theadityanathmishra/Next_Unicorn/portai-codebade/src/ml/train_xgboost_model.py", line 632, in train_advanced_xgboost_model
+    X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns, index=X.index)
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/utils/_set_output.py", line 319, in wrapped
+    data_to_wrap = f(self, X, *args, **kwargs)
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/base.py", line 918, in fit_transform
+    return self.fit(X, **fit_params).transform(X)
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/preprocessing/_data.py", line 894, in fit
+    return self.partial_fit(X, y, sample_weight)
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/base.py", line 1389, in wrapper
+    return fit_method(estimator, *args, **kwargs)
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/preprocessing/_data.py", line 930, in partial_fit
+    X = validate_data(
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/utils/validation.py", line 2944, in validate_data
+    out = check_array(X, input_name="X", **check_params)
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/utils/validation.py", line 1107, in check_array
+    _assert_all_finite(
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/utils/validation.py", line 120, in _assert_all_finite
+    _assert_all_finite_element_wise(
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/utils/validation.py", line 169, in _assert_all_finite_element_wise
+    raise ValueError(msg_err)
+ValueError: Input X contains infinity or a value too large for dtype('float64').
+2025-05-06 16:11:15,165 - PortAI-Train-XGBoost - INFO - Fetching historical candles from Binance...
+2025-05-06 16:11:15,470 - PortAI-Train-XGBoost - INFO - Fetching historical data for BTCUSDT from Binance...
+2025-05-06 16:11:21,969 - PortAI-Train-XGBoost - INFO - Fetched 20000 historical candles for BTCUSDT from Binance.
+2025-05-06 16:11:21,989 - PortAI-Train-XGBoost - INFO - Creating advanced features...
+2025-05-06 16:11:32,651 - PortAI-Train-XGBoost - INFO - Features: (20000, 27) | Labels: 20000
+2025-05-06 16:11:32,652 - PortAI-Train-XGBoost - INFO - Feature names: ['momentum', 'sma_diff', 'rsi', 'macd', 'macd_signal', 'trend_strength', 'atr_14', 'volatility_14', 'volatility_ratio', 'rsi_14', 'price_momentum', 'volume_change', 'volume_ma_ratio', 'volume_price_trend', 'volume_divergence', 'body_size', 'upper_shadow', 'lower_shadow', 'close_position', 'price_sma_ratio', 'bollinger_position', 'bb_width', 'pivot_proximity', 'sma_20_50_cross', 'sma_50_200_cross', 'hour', 'day_of_week']
+2025-05-06 16:11:32,652 - PortAI-Train-XGBoost - INFO - Class distribution: {-1.0: 9812, 0.0: 3, 1.0: 10185}
+2025-05-06 16:11:32,652 - PortAI-Train-XGBoost - WARNING - Class with few samples detected: 3. This may affect model performance.
+2025-05-06 16:11:32,658 - PortAI-Train-XGBoost - ERROR - Training failed: The least populated class in y has only 1 member, which is too few. The minimum number of groups for any class cannot be less than 2.
+Traceback (most recent call last):
+  File "/Users/theadityanathmishra/Next_Unicorn/portai-codebade/src/ml/train_xgboost_model.py", line 575, in train_advanced_xgboost_model
+    X_val, X_test, y_val, y_test = train_test_split(
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/utils/_param_validation.py", line 216, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/model_selection/_split.py", line 2872, in train_test_split
+    train, test = next(cv.split(X=arrays[0], y=stratify))
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/model_selection/_split.py", line 1909, in split
+    for train, test in self._iter_indices(X, y, groups):
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/sklearn/model_selection/_split.py", line 2318, in _iter_indices
+    raise ValueError(
+ValueError: The least populated class in y has only 1 member, which is too few. The minimum number of groups for any class cannot be less than 2.
+2025-05-06 19:28:28,918 - PortAI-Train-XGBoost - INFO - Fetching historical candles from Binance...
+2025-05-06 19:28:29,336 - PortAI-Train-XGBoost - INFO - Fetching historical data for BTCUSDT from Binance...
+2025-05-06 19:28:36,878 - PortAI-Train-XGBoost - INFO - Fetched 20000 historical candles for BTCUSDT from Binance.
+2025-05-06 19:28:36,896 - PortAI-Train-XGBoost - INFO - Creating advanced features...
+2025-05-06 19:28:49,282 - PortAI-Train-XGBoost - INFO - Features: (20000, 27) | Labels: 20000
+2025-05-06 19:28:49,282 - PortAI-Train-XGBoost - INFO - Feature names: ['momentum', 'sma_diff', 'rsi', 'macd', 'macd_signal', 'trend_strength', 'atr_14', 'volatility_14', 'volatility_ratio', 'rsi_14', 'price_momentum', 'volume_change', 'volume_ma_ratio', 'volume_price_trend', 'volume_divergence', 'body_size', 'upper_shadow', 'lower_shadow', 'close_position', 'price_sma_ratio', 'bollinger_position', 'bb_width', 'pivot_proximity', 'sma_20_50_cross', 'sma_50_200_cross', 'hour', 'day_of_week']
+2025-05-06 19:28:49,282 - PortAI-Train-XGBoost - INFO - Class distribution: {-1: 8139, 0: 4015, 1: 7846}
+2025-05-06 19:28:49,289 - PortAI-Train-XGBoost - INFO - Applying ADASYN to balance classes...
+2025-05-06 19:28:49,651 - PortAI-Train-XGBoost - ERROR - ADASYN failed: No samples will be generated with the provided ratio settings., using original data
+2025-05-06 19:28:49,652 - PortAI-Train-XGBoost - INFO - Class weights: {0: 1.0860506810587773, 1: 1.030864496734084, 2: 1.1061434821070466}
+2025-05-06 19:28:49,652 - PortAI-Train-XGBoost - INFO - Performing feature selection...
+2025-05-06 19:28:50,836 - PortAI-Train-XGBoost - INFO - Selected 14 features: macd_signal, trend_strength, atr_14, volatility_14, rsi_14, price_momentum, volume_ma_ratio, volume_price_trend, volume_divergence, price_sma_ratio, bb_width, pivot_proximity, sma_20_50_cross, sma_50_200_cross
+2025-05-06 19:28:50,840 - PortAI-Train-XGBoost - INFO - Optimizing hyperparameters with Optuna...
+2025-05-06 19:29:20,067 - PortAI-Train-XGBoost - INFO - Best Parameters: {'max_depth': 9, 'learning_rate': 0.02875727951637439, 'subsample': 0.9005050848927522, 'colsample_bytree': 0.9183928705370041, 'min_child_weight': 6, 'gamma': 0.26510806344136356, 'scale_pos_weight': 3.1382119576946854, 'alpha': 5.675236377927593, 'lambda': 8.650521598615715, 'objective': 'multi:softprob', 'num_class': 3, 'eval_metric': ['mlogloss', 'merror'], 'seed': 42}
+2025-05-06 19:29:20,067 - PortAI-Train-XGBoost - INFO - Training final model with optimized parameters...
+2025-05-06 19:29:20,688 - PortAI-Train-XGBoost - INFO - Created output directory: model_artifacts_20250506_192920
+2025-05-06 19:29:20,688 - PortAI-Train-XGBoost - INFO - Saved feature names
+2025-05-06 19:29:20,688 - PortAI-Train-XGBoost - INFO - Saved selected features
+2025-05-06 19:29:21,103 - PortAI-Train-XGBoost - INFO - Saved feature importance (weight) to model_artifacts_20250506_192920
+2025-05-06 19:29:21,231 - PortAI-Train-XGBoost - INFO - Saved feature importance (gain) to model_artifacts_20250506_192920
+2025-05-06 19:29:21,328 - PortAI-Train-XGBoost - INFO - Saved feature importance (cover) to model_artifacts_20250506_192920
+2025-05-06 19:29:21,422 - PortAI-Train-XGBoost - INFO - Saved feature importance (total_gain) to model_artifacts_20250506_192920
+2025-05-06 19:29:21,525 - PortAI-Train-XGBoost - INFO - Saved feature importance (total_cover) to model_artifacts_20250506_192920
+2025-05-06 19:29:21,525 - PortAI-Train-XGBoost - INFO - Calculating optimal prediction thresholds...
+2025-05-06 19:29:21,528 - PortAI-Train-XGBoost - INFO - Optimal thresholds: {-1: 0.23307471, 0: 0.18461773, 1: 0.324112}
+2025-05-06 19:29:21,528 - PortAI-Train-XGBoost - INFO - Evaluating model...
+2025-05-06 19:29:21,539 - PortAI-Train-XGBoost - INFO - Classification Report:
+              precision    recall  f1-score   support
+
+          -1       0.50      0.44      0.47       724
+           0       0.31      0.07      0.11       286
+           1       0.45      0.65      0.53       657
+
+    accuracy                           0.46      1667
+   macro avg       0.42      0.39      0.37      1667
+weighted avg       0.45      0.46      0.43      1667
+
+2025-05-06 19:29:21,618 - PortAI-Train-XGBoost - INFO - Saved confusion matrix plot
+2025-05-06 19:29:21,618 - PortAI-Train-XGBoost - INFO - Accuracy: 46.25%
+2025-05-06 19:29:21,618 - PortAI-Train-XGBoost - INFO - Average confidence for Sell (-1): 42.80%
+2025-05-06 19:29:21,618 - PortAI-Train-XGBoost - INFO -   - Average confidence for correct Sell (-1): 43.16%
+2025-05-06 19:29:21,618 - PortAI-Train-XGBoost - INFO -   - Average confidence for incorrect Sell (-1): 42.44%
+2025-05-06 19:29:21,618 - PortAI-Train-XGBoost - INFO - Average confidence for Hold (0): 39.48%
+2025-05-06 19:29:21,618 - PortAI-Train-XGBoost - INFO -   - Average confidence for correct Hold (0): 39.78%
+2025-05-06 19:29:21,618 - PortAI-Train-XGBoost - INFO -   - Average confidence for incorrect Hold (0): 39.35%
+2025-05-06 19:29:21,618 - PortAI-Train-XGBoost - INFO - Average confidence for Buy (1): 44.10%
+2025-05-06 19:29:21,618 - PortAI-Train-XGBoost - INFO -   - Average confidence for correct Buy (1): 44.69%
+2025-05-06 19:29:21,618 - PortAI-Train-XGBoost - INFO -   - Average confidence for incorrect Buy (1): 43.63%
+2025-05-06 19:29:21,625 - PortAI-Train-XGBoost - INFO - All model artifacts saved to directory: model_artifacts_20250506_192920
+2025-05-06 20:01:38,919 - PortAI-Train-XGBoost - INFO - Fetching historical candles from Binance...
+2025-05-06 20:01:39,346 - PortAI-Train-XGBoost - INFO - Fetching historical data for BTCUSDT from Binance...
+2025-05-06 20:01:46,020 - PortAI-Train-XGBoost - INFO - Fetched 20000 historical candles for BTCUSDT from Binance.
+2025-05-06 20:01:46,265 - PortAI-Train-XGBoost - INFO - Fetching historical data for ETHUSDT from Binance...
+2025-05-06 20:01:53,142 - PortAI-Train-XGBoost - INFO - Fetched 20000 historical candles for ETHUSDT from Binance.
+2025-05-06 20:01:53,184 - PortAI-Train-XGBoost - INFO - Creating advanced features...
+2025-05-06 20:01:57,663 - PortAI-Train-XGBoost - ERROR - Training failed: 'Series' object has no attribute 'pctW'
+Traceback (most recent call last):
+  File "/Users/theadityanathmishra/Next_Unicorn/portai-codebade/src/ml/train_xgboost_model.py", line 538, in train_advanced_xgboost_model
+    X = add_advanced_features(X, df)
+  File "/Users/theadityanathmishra/Next_Unicorn/portai-codebade/src/ml/train_xgboost_model.py", line 218, in add_advanced_features
+    X['volume_change'] = df['volume'].pctW
+  File "/Users/theadityanathmishra/.pyenv/versions/3.10.15/lib/python3.10/site-packages/pandas/core/generic.py", line 6299, in __getattr__
+    return object.__getattribute__(self, name)
+AttributeError: 'Series' object has no attribute 'pctW'
+2025-05-06 20:07:51,810 - PortAI-Train-XGBoost - INFO - Fetching historical candles from Binance...
+2025-05-06 20:07:52,245 - PortAI-Train-XGBoost - INFO - Fetching historical data for BTCUSDT from Binance...
+2025-05-06 20:07:58,916 - PortAI-Train-XGBoost - INFO - Fetched 20000 historical candles for BTCUSDT from Binance.
+2025-05-06 20:07:59,166 - PortAI-Train-XGBoost - INFO - Fetching historical data for ETHUSDT from Binance...
+2025-05-06 20:08:05,756 - PortAI-Train-XGBoost - INFO - Fetched 20000 historical candles for ETHUSDT from Binance.
+2025-05-06 20:08:05,790 - PortAI-Train-XGBoost - INFO - Creating advanced features...
+2025-05-06 20:08:10,143 - PortAI-Train-XGBoost - INFO - Initial X shape in add_advanced_features: (40000, 27)
+2025-05-06 20:08:31,563 - PortAI-Train-XGBoost - INFO - Final X shape after add_advanced_features: (40000, 27)
+2025-05-06 20:08:31,563 - PortAI-Train-XGBoost - INFO - Features: (40000, 27) | Labels: 40000
+2025-05-06 20:08:31,563 - PortAI-Train-XGBoost - INFO - Feature names: ['momentum', 'sma_diff', 'rsi', 'macd', 'macd_signal', 'trend_strength', 'atr_14', 'volatility_14', 'volatility_ratio', 'rsi_14', 'price_momentum', 'volume_change', 'volume_ma_ratio', 'volume_price_trend', 'volume_divergence', 'body_size', 'upper_shadow', 'lower_shadow', 'close_position', 'price_sma_ratio', 'bollinger_position', 'bb_width', 'pivot_proximity', 'sma_20_50_cross', 'sma_50_200_cross', 'hour', 'day_of_week']
+2025-05-06 20:08:31,564 - PortAI-Train-XGBoost - INFO - Class distribution: {-1: 16821, 0: 7116, 1: 16063}
+2025-05-06 20:08:31,575 - PortAI-Train-XGBoost - INFO - Applying ADASYN to balance classes...
+2025-05-06 20:08:32,024 - PortAI-Train-XGBoost - ERROR - ADASYN failed: No samples will be generated with the provided ratio settings., using original data
+2025-05-06 20:08:32,025 - PortAI-Train-XGBoost - INFO - Class weights: {0: 1.068377440286672, 1: 1.0950687498042424, 2: 1.0932948054934024}
+2025-05-06 20:08:32,025 - PortAI-Train-XGBoost - INFO - Performing feature selection...
+2025-05-06 20:08:33,330 - PortAI-Train-XGBoost - INFO - Selected 14 features: momentum, macd, macd_signal, trend_strength, atr_14, volatility_14, price_momentum, volume_ma_ratio, volume_price_trend, volume_divergence, price_sma_ratio, bb_width, pivot_proximity, sma_50_200_cross
+2025-05-06 20:08:33,334 - PortAI-Train-XGBoost - INFO - Optimizing hyperparameters with Optuna...
+2025-05-06 20:09:05,427 - PortAI-Train-XGBoost - INFO - Best Parameters: {'max_depth': 5, 'learning_rate': 0.22602442600822775, 'subsample': 0.8227198796838349, 'colsample_bytree': 0.6514109569258806, 'min_child_weight': 7, 'gamma': 0.45685373116096345, 'scale_pos_weight': 1.655142609414504, 'alpha': 4.162225220682892, 'lambda': 4.776207343414119, 'objective': 'multi:softprob', 'num_class': 3, 'eval_metric': ['mlogloss', 'merror'], 'seed': 42}
+2025-05-06 20:09:05,428 - PortAI-Train-XGBoost - INFO - Training final model with optimized parameters...
+2025-05-06 20:09:05,758 - PortAI-Train-XGBoost - INFO - Created output directory: model_artifacts_20250506_200905
+2025-05-06 20:09:05,758 - PortAI-Train-XGBoost - INFO - Saved feature names
+2025-05-06 20:09:05,758 - PortAI-Train-XGBoost - INFO - Saved selected features
+2025-05-06 20:09:06,095 - PortAI-Train-XGBoost - INFO - Saved feature importance (weight) to model_artifacts_20250506_200905
+2025-05-06 20:09:06,193 - PortAI-Train-XGBoost - INFO - Saved feature importance (gain) to model_artifacts_20250506_200905
+2025-05-06 20:09:06,290 - PortAI-Train-XGBoost - INFO - Saved feature importance (cover) to model_artifacts_20250506_200905
+2025-05-06 20:09:06,426 - PortAI-Train-XGBoost - INFO - Saved feature importance (total_gain) to model_artifacts_20250506_200905
+2025-05-06 20:09:06,525 - PortAI-Train-XGBoost - INFO - Saved feature importance (total_cover) to model_artifacts_20250506_200905
+2025-05-06 20:09:06,525 - PortAI-Train-XGBoost - INFO - Calculating optimal prediction thresholds...
+2025-05-06 20:09:06,528 - PortAI-Train-XGBoost - INFO - Optimal thresholds: {-1: 0.15702459, 0: 0.12122035, 1: 0.22387312}
+2025-05-06 20:09:06,528 - PortAI-Train-XGBoost - INFO - Evaluating model...
+2025-05-06 20:09:06,540 - PortAI-Train-XGBoost - INFO - Classification Report:
+              precision    recall  f1-score   support
+
+          -1       0.46      0.53      0.49      1470
+           0       0.09      0.00      0.00       398
+           1       0.46      0.51      0.49      1465
+
+    accuracy                           0.46      3333
+   macro avg       0.34      0.35      0.33      3333
+weighted avg       0.42      0.46      0.43      3333
+
+2025-05-06 20:09:06,621 - PortAI-Train-XGBoost - INFO - Saved confusion matrix plot
+2025-05-06 20:09:06,621 - PortAI-Train-XGBoost - INFO - Accuracy: 46.02%
+2025-05-06 20:09:06,621 - PortAI-Train-XGBoost - INFO - Average confidence for Sell (-1): 49.79%
+2025-05-06 20:09:06,621 - PortAI-Train-XGBoost - INFO -   - Average confidence for correct Sell (-1): 49.82%
+2025-05-06 20:09:06,621 - PortAI-Train-XGBoost - INFO -   - Average confidence for incorrect Sell (-1): 49.76%
+2025-05-06 20:09:06,621 - PortAI-Train-XGBoost - INFO - Average confidence for Hold (0): 39.16%
+2025-05-06 20:09:06,621 - PortAI-Train-XGBoost - INFO -   - Average confidence for correct Hold (0): 34.65%
+2025-05-06 20:09:06,621 - PortAI-Train-XGBoost - INFO -   - Average confidence for incorrect Hold (0): 39.61%
+2025-05-06 20:09:06,621 - PortAI-Train-XGBoost - INFO - Average confidence for Buy (1): 50.91%
+2025-05-06 20:09:06,621 - PortAI-Train-XGBoost - INFO -   - Average confidence for correct Buy (1): 51.36%
+2025-05-06 20:09:06,621 - PortAI-Train-XGBoost - INFO -   - Average confidence for incorrect Buy (1): 50.51%
+2025-05-06 20:09:06,628 - PortAI-Train-XGBoost - INFO - All model artifacts saved to directory: model_artifacts_20250506_200905

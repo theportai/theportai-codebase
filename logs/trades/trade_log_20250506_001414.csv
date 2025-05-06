@@ -1,0 +1,2 @@
+timestamp,symbol,action,price,confidence,correct,total_trades,accuracy,rolling_accuracy
+2025-05-06 00:15:00,ETHUSDT,buy,1825.59,0.5,True,1,1.0,1.0

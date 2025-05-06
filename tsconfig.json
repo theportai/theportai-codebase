@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "target": "es5",
+    "module": "esnext",
+    "moduleResolution": "node",
     "allowJs": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -17,15 +17,17 @@
     "paths": {
       "@/*": ["./*"]
     },
-    "types": ["node", "next", "next-auth"],  // ✅ Add this
-    "plugins": [{ "name": "next" }]
+    "types": ["node", "next", "next-auth"],
+    "plugins": [{ "name": "next" }],
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "**/*.mjs",
     "**/*.ts",
     "**/*.tsx",
     "next-env.d.ts",
-    ".next/types/**/*.ts"
-, "src/lib/cloudinary.js"  ],
+    ".next/types/**/*.ts",
+    "src/lib/cloudinary.js"
+  ],
   "exclude": ["node_modules"]
 }
