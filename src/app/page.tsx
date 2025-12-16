@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { FiLock, FiTrendingUp, FiDollarSign, FiChevronDown, FiCheck, FiAlertCircle } from "react-icons/fi";
 import { FaBrain } from "react-icons/fa";
 import { FiActivity, FiBarChart2, FiShield, FiZap } from "react-icons/fi";
+import { Analytics } from "@vercel/analytics/react"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export default function WaitlistPage() {
   const [scrollY, setScrollY] = useState(0);
@@ -281,6 +283,9 @@ export default function WaitlistPage() {
           </div>
         </div>
       </section>
+      
+      <Analytics/>
+      <SpeedInsights/>
 
       {/* Features Section */}
       <section id="features" className="py-20 bg-gray-900/30 backdrop-blur">

@@ -1,22 +1,65 @@
-import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import { NextRequest, NextResponse } from "next/server";
 
-const filePath = path.join(process.cwd(), "logs", "signal_state.json");
+interface Signal {
+  sentiment: "BUY" | "SELL" | "HOLD" | "N/A";
+  prediction: "BUY" | "SELL" | "HOLD" | "N/A";
+  market: "BUY" | "SELL" | "HOLD" | "N/A";
+  confidence: number;
+}
 
-export async function GET() {
+// In-memory store for signal data (replace with a database in production)
+let signalData: Signal = {
+  sentiment: "BUY",
+  prediction: "HOLD",
+  market: "SELL",
+  confidence: 75,
+};
+
+// Simulated authentication middleware (replace with real auth in production)
+const authenticateRequest = (req: NextRequest) => {
+  const authHeader = req.headers.get("authorization");
+  // In production, validate the token (e.g., JWT) against your auth system
+  if (!authHeader || authHeader !== "Bearer mock-token") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+};
+
+// Simulated logging function (replace with a real logging service in production, e.g., Winston or Sentry)
+const logError = (message: string, error: unknown) => {
+  console.error(`[${new Date().toISOString()}] ${message}:`, error);
+};
+
+// Validate signal data against the Signal interface
+const validateSignalData = (data: any): data is Signal => {
+  const validSignals = ["BUY", "SELL", "HOLD", "N/A"];
+  return (
+    data &&
+    typeof data === "object" &&
+    validSignals.includes(data.sentiment) &&
+    validSignals.includes(data.prediction) &&
+    validSignals.includes(data.market) &&
+    typeof data.confidence === "number" &&
+    data.confidence >= 0 &&
+    data.confidence <= 100
+  );
+};
+
+// GET: Fetch the current signal data
+export async function GET(req: NextRequest) {
+  // Authenticate the request
+  const authError = authenticateRequest(req);
+  if (authError) return authError;
+
   try {
-    // ✅ Check if file exists
-    if (!fs.existsSync(filePath)) {
-      return NextResponse.json({ error: "Signal file not found" }, { status: 404 });
+    if (!validateSignalData(signalData)) {
+      logError("Invalid signal data format", signalData);
+      return NextResponse.json({ error: "Invalid signal data format" }, { status: 500 });
     }
 
-    const data = fs.readFileSync(filePath, "utf-8");
-    const parsed = JSON.parse(data);
-
-    return NextResponse.json(parsed);
+    return NextResponse.json(signalData);
   } catch (error) {
-    console.error("Error reading signal_state.json:", error);
-    return NextResponse.json({ error: "Failed to read signal data" }, { status: 500 });
+    logError("Failed to fetch signal data", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

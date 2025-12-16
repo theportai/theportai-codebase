@@ -40,7 +40,8 @@ export async function POST(req: Request) {
             phone, 
             isVerified: false,
             kycStatus: "NOT_STARTED",
-            exchangeConnected: false
+            exchangeConnected: false,
+            subscriptionActive: false
           },
         });
         
@@ -81,7 +82,8 @@ async function handleSendOTP(phone: string) {
       phone, 
       isVerified: false,
       kycStatus: "NOT_STARTED",
-      exchangeConnected: false
+      exchangeConnected: false,
+      subscriptionActive: false
     }   
   });    
   
@@ -112,37 +114,88 @@ async function handleVerifyOTP(phone: string, otp: string) {
     }
   }
   
+  // Get user data before updating to check if they're new
+  const existingUser = await prisma.user.findUnique({ 
+    where: { phone } 
+  });
+  
+  // Determine if this is a new user - either they don't exist yet or were just created in the send step
+  const isNewUser = !existingUser || (existingUser && !existingUser.isVerified);
+  
   // Update user to verified
   await prisma.user.update({ 
     where: { phone }, 
     data: { isVerified: true }
   });   
   
-  const user = await prisma.user.findUnique({ where: { phone } });    
+  // Get fresh user data to ensure we have the latest subscription status
+  const user = await prisma.user.findUnique({ 
+    where: { phone } 
+  });    
   
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
   
-  const payload = {     
-    phone,     
+  // Determine the correct redirect based on user status
+  let redirectTo = "/dashboard";
+  
+  // FIXED: Prioritize isNewUser and kycStatus for /welcome page
+  if (isNewUser || user.kycStatus === "NOT_STARTED") {
+    redirectTo = "/welcome";
+    console.log("Redirecting new user to /welcome");
+  } else if (user.kycStatus === "PENDING") {
+    redirectTo = "/kyc-waiting";
+  } else if (user.kycStatus === "APPROVED" && !user.exchangeConnected) {
+    redirectTo = "/connect-exchange";
+  } else if (user.kycStatus === "APPROVED" && user.exchangeConnected && !user.subscriptionActive) {
+    redirectTo = "/pricing";
+  }
+  
+  const payload = {
+    id: user.id,
+    phone: user.phone,
+    email: user.email || null,
     kycStatus: user.kycStatus,
-    exchangeConnected: user.exchangeConnected
-  };    
+    exchangeConnected: user.exchangeConnected,
+    subscriptionActive: user.subscriptionActive,
+    isNewUser: isNewUser, // FIXED: Use proper isNewUser flag
+    redirectTo: redirectTo,
+    // Flag to indicate this is a post-auth action
+    postAuthAction: true
+  };
   
   const token = await new jose.SignJWT(payload)     
     .setProtectedHeader({ alg: "HS256" })     
     .setExpirationTime("7d")     
     .sign(new TextEncoder().encode(JWT_SECRET));    
   
-  const response = NextResponse.json({ success: true, token, user: payload });   
+  const response = NextResponse.json({ 
+    success: true, 
+    token, 
+    user: payload,
+    redirectTo: redirectTo
+  });   
+  
+  // Set the JWT token
   response.cookies.set("userToken", token, {     
     httpOnly: true,     
     secure: process.env.NODE_ENV === "production",     
     sameSite: "lax",     
     path: "/",     
     maxAge: 60 * 60 * 24 * 7   
-  });    
+  });
+  
+  // Set a short-lived post-auth action cookie
+  response.cookies.set("postAuthAction", "true", {
+    httpOnly: false, // Need to be readable by middleware
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 // 60 seconds
+  });
+  
+  console.log(`OTP Verification completed. User status: isNewUser=${isNewUser}, kycStatus=${user.kycStatus}, redirectTo=${redirectTo}`);
   
   return response; 
 }

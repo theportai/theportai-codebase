@@ -39,6 +39,8 @@ model User {
   updatedAt         DateTime  @updatedAt
   isVerified        Boolean   @default(false)
   exchangeConnected Boolean   @default(false)
+  subscriptionActive Boolean  @default(false)
+  isNewUser         Boolean   @default(false)
 }
 
 model OtpRequest {

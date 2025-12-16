@@ -1,25 +1,52 @@
-import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import { NextRequest, NextResponse } from "next/server";
 
-const filePath = path.resolve(process.cwd(), "logs/trading_status.json");
+let tradingStatus: "on" | "off" = "off";
 
-export async function GET() {
+const authenticateRequest = (req: NextRequest) => {
+  const authHeader = req.headers.get("authorization");
+  // In production, validate the token (e.g., JWT) against your auth system
+  if (!authHeader || authHeader !== "Bearer mock-token") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+};
+
+const logError = (message: string, error: unknown) => {
+  console.error(`[${new Date().toISOString()}] ${message}:`, error);
+};
+
+export async function GET(req: NextRequest) {
+  const authError = authenticateRequest(req);
+  if (authError) return authError;
+
   try {
-    const data = fs.readFileSync(filePath, "utf-8");
-    return NextResponse.json(JSON.parse(data));
+    return NextResponse.json({ status: tradingStatus });
   } catch (error) {
-    return NextResponse.json({ status: "off" });
+    logError("Failed to fetch trading status", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
+  const authError = authenticateRequest(req);
+  if (authError) return authError;
+
   try {
-    const { status } = await request.json();
-    fs.writeFileSync(filePath, JSON.stringify({ status }, null, 2));
-    return NextResponse.json({ message: "Status updated" });
+    const body = await req.json();
+    const { status } = body;
+
+    if (!status || (status !== "on" && status !== "off")) {
+      return NextResponse.json(
+        { error: "Invalid status. Must be 'on' or 'off'." },
+        { status: 400 }
+      );
+    }
+
+    tradingStatus = status;
+
+    return NextResponse.json({ message: "Status updated successfully", status });
   } catch (error) {
-    console.error("Failed to update trading status:", error);
-    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+    logError("Failed to update trading status", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -13,16 +13,15 @@ export default function SignupPage() {
   const router = useRouter();
 
 
-  // ✅ Generate chart data only on client side after hydration
   useEffect(() => {
-    setIsClient(true); // ✅ Mark component as client-rendered
+    setIsClient(true);
     setChartData(
       Array.from({ length: 30 }, () => ({
-        height: Math.floor(Math.random() * 20) + 4, // ✅ Pre-generated height values
-        isPositive: Math.random() > 0.5, // ✅ Pre-generated boolean
+        height: Math.floor(Math.random() * 20) + 4, 
+        isPositive: Math.random() > 0.5,
       }))
     );
-  }, []); // ✅ Runs only once after hydration
+  }, []); 
 
 
   const validatePhone = (value: string) => {
@@ -64,11 +63,9 @@ export default function SignupPage() {
       const data = await response.json();
       console.log("✅ OTP Sent Successfully:", data);
   
-      // 🔥 **Fix: Save phone number in localStorage before navigating**
       localStorage.setItem("userPhone", phone);  
       console.log("📲 Phone saved in localStorage:", localStorage.getItem("userPhone"));
   
-      // ✅ Redirect to OTP verification page
       router.push(`/verify-otp?phone=${phone}`);
     } catch (error: unknown) {
       console.error("❌ Error Sending OTP:", error);
@@ -95,7 +92,6 @@ export default function SignupPage() {
           <a href="#how-it-works" className="text-gray-400 hover:text-blue-400">How It Works</a>
           <a href="#pricing" className="text-gray-400 hover:text-blue-400">Pricing</a>
           <a href="#support" className="text-gray-400 hover:text-blue-400">Support</a>
-          <a href="/login" className="text-gray-400 hover:text-blue-400 px-4 py-2 rounded-md">Log In</a>
           <a href="/signup" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Sign Up</a>
         </div>
       </nav>
